@@ -1,0 +1,36 @@
+{
+  "user": "admin",
+  "pass": "admin",
+  "wifi": {
+    "ssid": "",
+    "pass": ""
+  },
+  "rx": {
+    "host": "",
+    "port": 80,
+    "token": ""
+  },
+  "id": {
+    "drone": 1,
+    "rc": 3
+  },
+  "control": {
+    "source": 0
+  },
+  "cal": {
+    "valid": false,
+    "tmin": 800,
+    "tmax": 3200,
+    "ymin": 800,
+    "ymax": 3200,
+    "pmin": 800,
+    "pmax": 3200,
+    "rmin": 800,
+    "rmax": 3200
+  },
+  "pid": {
+    "roll":  { "kp": 3.0, "ki": 0.08, "kd": 8.0 },
+    "pitch": { "kp": 3.0, "ki": 0.08, "kd": 8.0 },
+    "yaw":   { "kp": 4.0, "ki": 0.5,  "kd": 0.0 }
+  }
+}

@@ -1,0 +1,268 @@
+/* ============================================================
+   KKBOX 遙控器 (ESP32 D1 mini) 前端樣式
+   - 主題: 明亮 (light) / 暗黑 (dark, 預設) / 玻璃風 (glass)
+       由 <html data-theme="..."> 切換, 見 app.js
+   - Sidebar: 漢堡選單控制
+       電腦  : 常駐, 按漢堡可收合
+       平板/手機: 抽屜式, 按漢堡滑出 + 遮罩
+   - RWD: 電腦 (>=1025) / 平板 (641~1024) / 手機 (<=640)
+   ============================================================ */
+
+:root{
+  --bg:#0f1216; --panel:#181d24; --panel2:#20262f; --line:#2b3340;
+  --fg:#e6ebf2; --muted:#8b97a6; --accent:#37c2ff; --accent2:#1f8fbf;
+  --ok:#3ddc84; --warn:#ffcc4d; --err:#ff5b5b;
+  --shadow:0 8px 24px rgba(0,0,0,.45);
+  --bg-image:none;
+}
+html[data-theme="light"]{
+  --bg:#f2f5fa; --panel:#ffffff; --panel2:#e9eef6; --line:#d7dee8;
+  --fg:#1b2330; --muted:#5d6b7d; --accent:#0d7bd0; --accent2:#1272c2;
+  --ok:#1a9d54; --warn:#b7791f; --err:#d64545;
+  --shadow:0 8px 24px rgba(20,40,70,.14);
+  --bg-image:none;
+}
+html[data-theme="glass"]{
+  --bg:#0a0f1a; --panel:rgba(255,255,255,.09); --panel2:rgba(255,255,255,.16);
+  --line:rgba(255,255,255,.20); --fg:#eef4ff; --muted:#aab8d0;
+  --accent:#8ad6ff; --accent2:rgba(55,160,230,.55);
+  --ok:#7bf0ad; --warn:#ffd76a; --err:#ff8f8f;
+  --shadow:0 8px 32px rgba(0,0,0,.45);
+  --bg-image:linear-gradient(135deg,#182a55 0%,#3a1d5e 45%,#0b2f4a 100%);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  background:var(--bg);color:var(--fg);
+  font-family:system-ui,"Segoe UI","Microsoft JhengHei",sans-serif;font-size:14px;
+}
+html[data-theme="glass"] body{background-image:var(--bg-image);background-attachment:fixed}
+html[data-theme="glass"] .card,
+html[data-theme="glass"] .sidebar,
+html[data-theme="glass"] .login-box,
+html[data-theme="glass"] .toast,
+html[data-theme="glass"] .modal-box,
+html[data-theme="glass"] .tbl,
+html[data-theme="glass"] .hamburger,
+html[data-theme="glass"] .theme-switch,
+html[data-theme="glass"] input,
+html[data-theme="glass"] select{
+  backdrop-filter:blur(14px) saturate(140%);
+  -webkit-backdrop-filter:blur(14px) saturate(140%);
+}
+
+.hidden{display:none !important}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+h2{margin:0 0 14px;font-weight:600}
+h3{margin:22px 0 10px;font-weight:600;color:var(--fg)}
+a{color:var(--accent);text-decoration:none}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ---------- 版面 ---------- */
+.layout{display:flex;min-height:100vh}
+.sidebar{
+  width:230px;flex:0 0 230px;background:var(--panel);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;gap:6px;padding:18px 0;z-index:2;
+}
+body.nav-open .sidebar{display:none}   /* 電腦: 按漢堡收合側欄 */
+
+.brand{padding:0 18px 18px;border-bottom:1px solid var(--line)}
+.brand .title{font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px}
+.brand .sub{color:var(--muted);font-size:12px;margin-top:4px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--err);display:inline-block;box-shadow:0 0 8px currentColor}
+.dot.on{background:var(--ok)}
+nav{display:flex;flex-direction:column;padding:12px 10px;gap:4px;flex:1}
+nav a{padding:10px 14px;border-radius:8px;color:var(--fg);cursor:pointer;display:block;white-space:nowrap}
+nav a:hover{background:var(--panel2)}
+nav a.active{background:var(--accent2);color:#fff}
+
+/* ---------- 主題切換 (右上角) ---------- */
+.theme-switch{display:flex;gap:4px;margin-left:auto;padding:4px;background:var(--panel2);border:1px solid var(--line);border-radius:10px}
+.theme-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;margin:0;background:transparent;border:none;border-radius:7px;color:var(--muted);font:inherit;font-size:12px;cursor:pointer}
+.theme-btn svg{display:block}
+.theme-btn:hover{background:var(--panel);color:var(--fg)}
+.theme-btn.active{background:var(--accent2);color:#fff}
+
+.ghost{margin:8px 14px;padding:9px;background:transparent;border:1px solid var(--line);color:var(--fg);border-radius:8px;cursor:pointer}
+.ghost:hover{border-color:var(--accent)}
+
+/* ---------- 頂列 + 漢堡 ---------- */
+main{flex:1;padding:20px 30px 30px;overflow:auto;max-width:1100px;width:100%}
+.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.hamburger{
+  width:42px;height:36px;flex:0 0 auto;padding:0;margin:0;cursor:pointer;
+  background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+}
+.hamburger:hover{background:var(--panel);border-color:var(--accent)}
+.hamburger span{width:18px;height:2px;background:var(--fg);border-radius:2px;transition:transform .2s,opacity .2s}
+body.nav-open .hamburger span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+body.nav-open .hamburger span:nth-child(2){opacity:0}
+body.nav-open .hamburger span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+.topbar-title{font-weight:700;font-size:16px;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.backdrop{display:none}
+
+.page{display:none}
+.page.active{display:block}
+
+.esc-steps{margin:0 0 4px;padding-left:22px}
+.esc-steps li{margin:10px 0;line-height:1.45}
+.esc-steps li p{margin:2px 0 0}
+
+/* ---------- 卡片 / 網格 ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card .k{color:var(--muted);font-size:12px}
+.card .v{font-size:18px;font-weight:600;margin-top:6px;word-break:break-all}
+.card .v.small{font-size:14px}
+.card .row{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.card .row>*{min-width:0}
+.card .row.card-actions{justify-content:flex-start}
+.card>button{display:block}
+.card label{display:block;margin:10px 0}
+.card label.inline{display:inline-flex;gap:6px;margin-right:18px}
+
+input,select{
+  width:100%;padding:9px 11px;margin-top:5px;background:var(--bg);color:var(--fg);
+  border:1px solid var(--line);border-radius:8px;font:inherit;
+}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+input[type=radio],input[type=checkbox]{width:auto;margin:0;padding:0;flex:0 0 auto;accent-color:var(--accent)}
+.listbox{margin:10px 0}
+label{color:var(--muted)}
+label.inline{align-items:center;line-height:1.45;max-width:100%}
+
+/* ---------- WiFi 掃描清單 ---------- */
+.wifi-actions{justify-content:flex-start}
+.wifi-actions button{margin:0}
+.wifi-list{display:flex;flex-direction:column;gap:6px;margin:10px 0 4px;padding:2px;
+  max-height:264px;overflow-y:auto}
+.wifi-empty{margin:6px 2px 10px;color:var(--muted);font-size:12.5px;line-height:1.5}
+.wifi-item{display:flex;align-items:center;gap:10px;width:100%;margin:0;padding:10px 12px;
+  background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--fg);
+  font:inherit;font-weight:400;text-align:left;cursor:pointer;
+  transition:border-color .15s,background .15s}
+.wifi-item:hover{background:var(--panel2);border-color:var(--accent)}
+.wifi-item:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.wifi-item.selected{border-color:var(--accent);background:rgba(55,194,255,.10)}
+.wifi-item.is-current .wifi-name{color:var(--accent)}
+.wifi-sig{display:inline-flex;align-items:flex-end;gap:2px;width:18px;height:15px;flex:0 0 auto}
+.wifi-sig i{width:3px;border-radius:1px;background:var(--line)}
+.wifi-sig i:nth-child(1){height:4px}
+.wifi-sig i:nth-child(2){height:7px}
+.wifi-sig i:nth-child(3){height:10px}
+.wifi-sig i:nth-child(4){height:14px}
+.wifi-sig[data-level="1"] i:nth-child(-n+1),
+.wifi-sig[data-level="2"] i:nth-child(-n+2),
+.wifi-sig[data-level="3"] i:nth-child(-n+3),
+.wifi-sig[data-level="4"] i:nth-child(-n+4){background:var(--accent)}
+.wifi-sig[data-level="1"] i:nth-child(-n+1){background:var(--err)}
+.wifi-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+.wifi-name{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wifi-meta{font-size:11px;color:var(--muted)}
+.wifi-rssi{flex:0 0 auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.token{overflow-wrap:anywhere;word-break:break-all}
+
+button{
+  padding:10px 16px;margin-top:8px;background:var(--accent2);color:#fff;border:none;
+  border-radius:8px;font:inherit;font-weight:600;cursor:pointer;
+}
+button:hover{background:var(--accent)}
+button:disabled{opacity:.55;cursor:default;pointer-events:none}
+button.danger{background:#7a2323}
+button.danger:hover{background:var(--err)}
+.btn{display:inline-block;margin-top:8px;padding:10px 16px;background:var(--accent2);color:#fff;border-radius:8px;font-weight:600}
+
+/* ---------- 表格 ---------- */
+.tbl{width:100%;border-collapse:collapse;margin-top:12px}
+.tbl th,.tbl td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line)}
+.tbl tbody tr:last-child th,.tbl tbody tr:last-child td{border-bottom:none}
+.tbl th{color:var(--muted);font-weight:500;font-size:12px;white-space:nowrap;vertical-align:top}
+.tbl td{font-weight:600;overflow-wrap:anywhere}
+.tbl input{margin:0}
+#pid-tbl input{min-width:72px}
+
+/* ---------- 進度條 ---------- */
+.bar{height:8px;background:var(--bg);border-radius:6px;overflow:hidden;margin:10px 0}
+.bar>div{height:100%;width:0;background:var(--accent);transition:width .3s}
+
+/* ---------- 登入 ---------- */
+.login-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+html[data-theme="glass"] .login-overlay{background-image:var(--bg-image);background-attachment:fixed}
+.login-box{width:340px;max-width:100%;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px}
+.login-box h1{margin:0 0 4px;font-size:20px}
+.login-box input{margin-top:12px}
+.login-box button{width:100%;margin-top:16px}
+.err{color:var(--err);min-height:18px;margin-top:10px;font-size:13px}
+
+/* ---------- Toast ---------- */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel2);
+  border:1px solid var(--line);padding:12px 20px;border-radius:10px;z-index:200;box-shadow:var(--shadow);
+  max-width:calc(100% - 32px);box-sizing:border-box}
+.toast.ok{border-color:var(--ok)}
+.toast.err{border-color:var(--err)}
+
+/* ---------- 彈窗 ---------- */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:300;padding:16px}
+.modal.hidden{display:none}
+.modal-box{width:340px;max-width:100%;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:var(--shadow)}
+.modal-box h3{margin:0 0 8px;font-size:18px}
+.modal-box p{margin:0 0 18px;color:var(--muted);line-height:1.5}
+.modal-box button{width:100%}
+
+/* ---------- 模擬搖桿 ---------- */
+.joy-wrap{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}
+.pad-box{text-align:center}
+.pad{position:relative;width:min(280px,78vw);height:min(280px,78vw);margin:0 auto;
+  background:radial-gradient(circle at 50% 50%,var(--panel2),var(--panel));
+  border:1px solid var(--line);border-radius:50%;touch-action:none;user-select:none}
+html[data-theme="glass"] .pad{backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%)}
+.pad-cross-h,.pad-cross-v{position:absolute;background:var(--line)}
+.pad-cross-h{left:8%;right:8%;top:50%;height:1px}
+.pad-cross-v{top:8%;bottom:8%;left:50%;width:1px}
+.knob{position:absolute;width:56px;height:56px;border-radius:50%;background:var(--accent2);
+  border:2px solid var(--accent);left:50%;top:50%;transform:translate(-50%,-50%);cursor:grab;
+  transition:background .15s;box-shadow:0 0 20px rgba(55,194,255,.4)}
+.knob:active{cursor:grabbing;background:var(--accent)}
+.pad-box .row{justify-content:space-around;margin-top:12px}
+.joy-ctrl label{margin:18px 0;display:block;color:var(--fg)}
+.joy-ctrl b{color:var(--accent)}
+input[type=range]{width:100%;margin-top:10px;accent-color:var(--accent)}
+.joy-ctrl .row{justify-content:flex-start;gap:10px;flex-wrap:wrap}
+.joy-ctrl .row button{margin-top:6px}
+
+/* ============ 平板 / 手機: 抽屜式側欄 ============ */
+@media (max-width:1024px){
+  .sidebar{
+    position:fixed;top:0;left:0;height:100%;width:min(82vw,300px);z-index:90;
+    transform:translateX(-100%);transition:transform .25s ease;overflow-y:auto;
+    display:flex;border-right:1px solid var(--line);
+  }
+  body.nav-open .sidebar{display:flex;transform:translateX(0)}
+  .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:85}
+  body.nav-open .backdrop{display:block}
+  main{padding:16px;max-width:none}
+  .joy-wrap{grid-template-columns:1fr}
+}
+
+/* ---------- 手機 ---------- */
+@media (max-width:640px){
+  body{font-size:13px}
+  main{padding:14px}
+  h2{font-size:18px}
+  .topbar{gap:8px}
+  .topbar-title{font-size:15px}
+  .card{padding:12px}
+  .tbl th,.tbl td{padding:8px 10px}
+  .tbl{font-size:12.5px}
+  .theme-switch{padding:3px}
+  .theme-btn{padding:7px}
+  .theme-btn span{display:none}
+  .pad{width:min(280px,calc(100vw - 56px));height:min(280px,calc(100vw - 56px))}
+  .wifi-list{max-height:220px}
+  .wifi-item{padding:9px 10px;gap:8px}
+  .card-actions button{flex:1 1 100%;margin-top:0}
+}

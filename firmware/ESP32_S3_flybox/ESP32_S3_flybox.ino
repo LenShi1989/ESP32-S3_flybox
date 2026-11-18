@@ -1,23 +1,27 @@
 /*
  * ESP32-S3 飛控板 (M5Stack AtomS3R-Ext) 韌體
  * ---------------------------------------------------------------
- * 版本 (Version): 1.0.0        (見 config.h 的 FW_VERSION)
+ * 版本 (Version): 2.0.0        (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    ESP32-S3 Flybox
  * ---------------------------------------------------------------
  * - Arduino IDE 1.8.19 / ESP32 core 2.x 或 3.x
  * - PID 演算法 (三軸 rate PID) + 陀螺儀回授自主平衡
- * - IMU: BMI270 (I2C, 由 M5Unified 初始化), 開機自動校正零點
- * - RS-232 (UART1, 9600 8N1) 與 WT32-ETH01 接收機交換單行 JSON
+ * - IMU: BMI270 六軸 (I2C, 由 M5Unified 初始化), 開機自動校正零點
+ * - MAG: BMM150 三軸地磁, 經 BMI270 Sensor Hub 讀取, 用於姿態 yaw
+ * - 姿態: 互補濾波 (陀螺 + 加速度計 + 地磁), 遙測回報 roll/pitch/yaw
+ * - RS-232 (UART1, 115200 8N1) 與 WT32-ETH01 接收機交換單行 JSON
  *   命令: ping / led / arm / disarm / calibrate / nopid / throttle /
  *         hold / motors / setpoints / pid / motmin / telemetry / status
- * - 4 槳 Quad-X 或 8 槳 X8 同軸 (執行中可切換)
- * - 遙測格式與接收機、遙控器的既有協定相同
+ * - 開機預設 4 槳 Quad-X (X4), 可執行中切換 8 槳 X8 同軸
+ * - 機頭方向 = USB Type-C 接口方向
  * - 各馬達最低啟動 PWM 存於 NVS, 重開機仍保留
  *
  * 安全: 超過 FAILSAFE_MS 沒收到命令會自動上鎖; IMU 無回應時拒絕解鎖。
  * 序列命令請見 README.md。所有命令以 '\n' 結尾。
  */
 
+#include <Arduino.h>
+#include <math.h>
 #include <M5Unified.h>
 #include <Preferences.h>
 #include "config.h"
@@ -28,7 +32,7 @@
 #include "motors.h"
 #include "link.h"
 
-Gyro gyro;
+Imu  imu;
 PID  pidRoll, pidPitch, pidYaw;
 
 GyroData gyroNow = { 0.0f, 0.0f, 0.0f };
@@ -116,9 +120,9 @@ static void updateLed() {
 }
 
 /* ---------------- 控制回路 ---------------- */
-/* 固定頻率: 讀陀螺 -> PID -> 混控 -> 輸出 ESC */
+/* 固定頻率: 讀 IMU -> PID -> 混控 -> 輸出 ESC */
 static void controlStep(float dt) {
-  gyroNow = gyro.read();
+  gyroNow = imu.update();
 
   float rOut = 0.0f, pOut = 0.0f, yOut = 0.0f;
   if (armed && !pidBypass) {
@@ -165,15 +169,27 @@ static void sendTelemetry() {
   if (now - lastTelMs < telIntervalMs) return;
   lastTelMs = now;
 
-  char buf[224];
+  const Attitude& att = imu.attitude();
+  const Axis3&    acc = imu.accel();
+  const Axis3&    mag = imu.mag();
+
+  /* 單位: gyro=deg/s, att=deg (yaw 0~360), acc=mg, mag=0.1uT */
+  char buf[384];
   int n = snprintf(buf, sizeof buf,
-    "{\"t\":%lu,\"armed\":%d,\"mcount\":%u,\"hold\":%d,"
+    "{\"t\":%lu,\"armed\":%d,\"mcount\":%u,\"hold\":%d,\"magok\":%d,"
     "\"gyro\":{\"roll\":%d,\"pitch\":%d,\"yaw\":%d},"
+    "\"att\":{\"roll\":%d,\"pitch\":%d,\"yaw\":%d},"
+    "\"acc\":{\"x\":%d,\"y\":%d,\"z\":%d},"
+    "\"mag\":{\"x\":%d,\"y\":%d,\"z\":%d},"
     "\"set\":{\"roll\":%d,\"pitch\":%d,\"yaw\":%d,\"thr\":%ld},"
     "\"motor\":[",
     (unsigned long)now, armed ? 1 : 0, (unsigned)motorCount, hold ? 1 : 0,
-    (int)gyroNow.roll, (int)gyroNow.pitch, (int)gyroNow.yaw,
-    (int)setRoll, (int)setPitch, (int)setYaw, throttleUs);
+    imu.magOk() ? 1 : 0,
+    (int)lroundf(gyroNow.roll), (int)lroundf(gyroNow.pitch), (int)lroundf(gyroNow.yaw),
+    (int)lroundf(att.roll), (int)lroundf(att.pitch), ((int)lroundf(att.yaw)) % 360,
+    (int)lroundf(acc.x * 1000.0f), (int)lroundf(acc.y * 1000.0f), (int)lroundf(acc.z * 1000.0f),
+    (int)lroundf(mag.x * 10.0f), (int)lroundf(mag.y * 10.0f), (int)lroundf(mag.z * 10.0f),
+    (int)lroundf(setRoll), (int)lroundf(setPitch), (int)lroundf(setYaw), throttleUs);
 
   for (uint8_t i = 0; i < motorCount && n > 0 && n < (int)sizeof buf; i++) {
     n += snprintf(buf + n, sizeof buf - n, i ? ",%d" : "%d", (int)(motorUs[i] + 0.5f));
@@ -212,7 +228,7 @@ static void handleCommand(char* s) {
     linkSendLine(b);
 
   } else if (!strcmp(cmd, "arm")) {
-    if (!gyro.ok()) { linkSendLine("{\"err\":\"imu\"}"); return; }
+    if (!imu.ok()) { linkSendLine("{\"err\":\"imu\"}"); return; }
     throttleUs = ESC_MIN;
     hold = false;
     armed = true;
@@ -226,7 +242,7 @@ static void handleCommand(char* s) {
   } else if (!strcmp(cmd, "calibrate")) {
     /* 校正期間機體必須靜止, 因此解鎖中不允許重新校正 */
     if (armed) { linkSendLine("{\"err\":\"armed\"}"); return; }
-    gyro.calibrate(GYRO_CAL_SAMPLES);
+    imu.calibrate(GYRO_CAL_SAMPLES);
     ackCmd("calibrate");
 
   } else if (!strcmp(cmd, "nopid")) {
@@ -285,12 +301,13 @@ static void handleCommand(char* s) {
     ackCmd("telemetry");
 
   } else if (!strcmp(cmd, "status")) {
-    char b[224];
+    char b[288];
     int n = snprintf(b, sizeof b,
       "{\"ack\":\"status\",\"fw\":\"" FW_NAME "\",\"ver\":\"" FW_VERSION "\","
-      "\"armed\":%d,\"thr\":%ld,\"tel\":%u,\"mcount\":%u,\"hold\":%d,\"mmin\":[",
+      "\"armed\":%d,\"thr\":%ld,\"tel\":%u,\"mcount\":%u,\"hold\":%d,"
+      "\"magok\":%d,\"mmin\":[",
       armed ? 1 : 0, throttleUs, (unsigned)telIntervalMs,
-      (unsigned)motorCount, hold ? 1 : 0);
+      (unsigned)motorCount, hold ? 1 : 0, imu.magOk() ? 1 : 0);
     for (uint8_t i = 0; i < MAX_MOTORS && n > 0 && n < (int)sizeof b; i++) {
       n += snprintf(b + n, sizeof b - n, i ? ",%u" : "%u", (unsigned)motorMin[i]);
     }
@@ -311,11 +328,12 @@ void setup() {
   Serial.begin(115200);
 
   Serial.printf("\n[SYS] %s v%s\n", FW_NAME, FW_VERSION);
+  Serial.println("[SYS] 機頭 = USB Type-C, 預設 4 槳 Quad-X (X4)");
 
-  if (!gyro.begin()) {
+  if (!imu.begin()) {
     Serial.println("[IMU] BMI270 初始化失敗, 將拒絕解鎖");
   } else {
-    Serial.println("[IMU] BMI270 就緒 (I2C SCL=G0 / SDA=G45)");
+    Serial.println("[IMU] BMI270 六軸就緒 (I2C SCL=G0 / SDA=G45)");
   }
 
   linkBegin();
@@ -337,7 +355,14 @@ void setup() {
   pidYaw.setIntegralLimit(PID_I_LIMIT);
 
   /* 開機校正: 機體必須靜止放平 */
-  gyro.calibrate(GYRO_CAL_SAMPLES);
+  imu.calibrate(GYRO_CAL_SAMPLES);
+  /* 等 BMM150 第一筆有效資料 (最多約 200ms), 以便開機訊息與初始 yaw */
+  for (uint8_t i = 0; i < 20 && !imu.magOk(); i++) {
+    imu.update();
+    delay(10);
+  }
+  Serial.printf("[IMU] 地磁 BMM150 (BMI270 Sensor Hub): %s\n",
+                imu.magOk() ? "就緒" : "無資料");
 
   lastCtrlUs = micros();
   lastCmdMs  = millis();
@@ -356,7 +381,9 @@ void loop() {
   uint32_t durUs = nowUs - lastCtrlUs;
   if (durUs >= CTRL_PERIOD_US) {
     lastCtrlUs = nowUs;
-    controlStep(durUs * 1e-6f);
+    float dt = durUs * 1e-6f;
+    if (dt > CTRL_MAX_DT) dt = CTRL_MAX_DT;
+    controlStep(dt);
   }
 
   updateLed();

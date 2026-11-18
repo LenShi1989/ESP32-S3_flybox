@@ -7,9 +7,9 @@
 /* 混控: 輸出 (us) = 油門 + roll/pitch/yaw PID 修正量。
  * 支援執行中切換 4 槳 (Quad-X / Quad-+) 與 8 槳 (X8 同軸)。
  *
- * 4 槳 Quad-X (機頭朝上, M1~M4 為上槳):
+ * 4 槳 Quad-X (Type-C 機頭朝上, M1~M4 為上槳):
  *
- *          機頭 ^
+ *        Type-C / 機頭 ^
  *    M1(FL) CCW     M2(FR) CW
  *            \   /
  *             \ /

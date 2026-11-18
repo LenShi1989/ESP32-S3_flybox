@@ -23,8 +23,10 @@
 /* ---------- 與 KKBOX 飛控板的 UART ---------- */
 #define KK_RX_PIN   5
 #define KK_TX_PIN   17
-/* 9600: 與飛控板 (ESP32-S3 硬體 UART1) 一致; 舊 KKBOX 飛控板為 8MHz SoftwareSerial, 也只能 9600 */
-#define KK_BAUD     9600
+/* 115200: 與 ESP32-S3 飛控板 (硬體 UART1) 一致, 可容納含姿態/地磁的遙測。
+ * 若仍需連接舊 KKBOX 飛控板 (8MHz SoftwareSerial, 上限 9600), 請改回 9600
+ * 並同步調整飛控 config.h 的 RS232_BAUD 與遙測間隔。 */
+#define KK_BAUD     115200
 
 /* ---------- 內建 LAN8720A RJ45 (WT32-ETH01) ---------- */
 #define ETH_ADDR    1

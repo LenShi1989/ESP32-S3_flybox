@@ -292,3 +292,16 @@ html[data-theme="glass"] .login-overlay{background-image:var(--bg-image);backgro
 .gyro-fill{position:absolute;top:0;bottom:0;left:50%;width:0;background:var(--accent);border-radius:3px;transition:left .12s linear,width .15s linear,background .15s linear}
 .gyro-val{font-size:13px;color:var(--fg);text-align:right;font-variant-numeric:tabular-nums}
 
+
+/* ---------- 六軸姿態 / 三軸地磁 ---------- */
+.att-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.att-item{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 6px}
+.att-k{font-size:12px;color:var(--muted)}
+.att-v{font-size:24px;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums;line-height:1.15}
+.att-u{font-size:12px;color:var(--muted)}
+.mag-head{justify-content:space-between;align-items:center;margin-bottom:10px}
+.pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.pill.ok{color:var(--ok);border-color:var(--ok)}
+.pill.err{color:var(--err);border-color:var(--err)}
+.tbl.compact th,.tbl.compact td{padding:6px 8px;font-size:13px}
+@media (max-width:640px){.att-grid{gap:6px}.att-item{padding:8px 4px}.att-v{font-size:20px}}

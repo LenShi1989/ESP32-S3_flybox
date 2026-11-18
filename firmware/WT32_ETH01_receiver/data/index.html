@@ -252,12 +252,43 @@
         </div>
         <p class="muted small">以 0 為中心，滿刻度 ±200 deg/s</p>
       </div>
+
+      <h3>六軸姿勢感測器 (BMI270)</h3>
+      <div class="card">
+        <div class="att-grid">
+          <div class="att-item"><span class="att-k">Roll</span><span class="att-v" id="att-roll">-</span><span class="att-u">°</span></div>
+          <div class="att-item"><span class="att-k">Pitch</span><span class="att-v" id="att-pitch">-</span><span class="att-u">°</span></div>
+          <div class="att-item"><span class="att-k">Yaw</span><span class="att-v" id="att-yaw">-</span><span class="att-u">°</span></div>
+        </div>
+        <div class="scroll-x">
+          <table class="tbl compact">
+            <thead><tr><th>加速度計 (g)</th><th>X 前</th><th>Y 右</th><th>Z 下</th></tr></thead>
+            <tbody><tr><th>目前值</th><td id="acc-x">-</td><td id="acc-y">-</td><td id="acc-z">-</td></tr></tbody>
+          </table>
+        </div>
+        <p class="muted small">陀螺儀與加速度計互補濾波。Type-C 為機頭 (+X 前)、+Y 右、+Z 下；Yaw 以磁北為 0°，順時針增加。</p>
+      </div>
+
+      <h3>三軸地磁式感測器 (BMM150)</h3>
+      <div class="card">
+        <div class="row mag-head">
+          <div class="att-item"><span class="att-k">磁方位</span><span class="att-v" id="mag-heading">-</span><span class="att-u">°</span></div>
+          <span id="mag-state" class="pill">-</span>
+        </div>
+        <div class="scroll-x">
+          <table class="tbl compact">
+            <thead><tr><th>磁力計 (µT)</th><th>X 前</th><th>Y 右</th><th>Z 下</th></tr></thead>
+            <tbody><tr><th>目前值</th><td id="mag-x">-</td><td id="mag-y">-</td><td id="mag-z">-</td></tr></tbody>
+          </table>
+        </div>
+        <p class="muted small">BMM150 掛載於 BMI270 的 Sensor Hub，由飛控一併讀取；數值為機體座標分量。</p>
+      </div>
     </section>
 
     <!-- RS232 串口通訊 -->
     <section id="page-serial" class="page">
       <h2>RS232 串口通訊</h2>
-      <p class="muted">即時監控接收機與飛控板之間 (Serial2, 9600 8N1) 的 JSON 字串。
+      <p class="muted">即時監控接收機與飛控板之間 (Serial2, 115200 8N1) 的 JSON 字串。
         TX＝接收機轉送至飛控板（含 PID 下傳與 WebSocket 命令）；RX＝飛控板回傳（遙測 / ack / evt / err）。</p>
       <div class="card">
         <div class="row ser-bar">

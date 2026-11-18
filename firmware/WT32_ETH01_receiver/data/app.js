@@ -166,6 +166,7 @@ function applyTelemetry(t) {
   if (t.set) updateGauge(t.set.thr);
   if (t.motor) updatePie(t.motor);
   updateGyroBars(t.gyro);
+  updateSensorPanels(t);
   $('f-armed').textContent = t.armed ? '解鎖' : '上鎖';
   if (t.mcount !== undefined) {
     $('f-mcount').textContent = t.mcount + ' 顆';
@@ -223,6 +224,36 @@ function updateGyroBars(g) {
     fill.style.background = v >= 0 ? 'var(--accent)' : 'var(--warn)';
     if (val) val.textContent = (v >= 0 ? '+' : '') + v.toFixed(0);
   });
+}
+
+/* ---------- 六軸姿態 / 三軸地磁 ---------- */
+function updateSensorPanels(t) {
+  if (t.att) {
+    const fmtSigned = (v) => (v >= 0 ? '+' : '') + (+v).toFixed(0);
+    $('att-roll').textContent = fmtSigned(t.att.roll);
+    $('att-pitch').textContent = fmtSigned(t.att.pitch);
+    const yaw = (((+t.att.yaw || 0) % 360) + 360) % 360;
+    $('att-yaw').textContent = yaw.toFixed(0);
+    $('mag-heading').textContent = yaw.toFixed(0);
+  }
+  if (t.acc) {
+    $('acc-x').textContent = (t.acc.x / 1000).toFixed(2);
+    $('acc-y').textContent = (t.acc.y / 1000).toFixed(2);
+    $('acc-z').textContent = (t.acc.z / 1000).toFixed(2);
+  }
+  if (t.mag) {
+    $('mag-x').textContent = (t.mag.x / 10).toFixed(1);
+    $('mag-y').textContent = (t.mag.y / 10).toFixed(1);
+    $('mag-z').textContent = (t.mag.z / 10).toFixed(1);
+  }
+  if (t.magok !== undefined) {
+    const ok = !!t.magok;
+    const el = $('mag-state');
+    if (el) {
+      el.textContent = ok ? 'BMM150 正常' : 'BMM150 無資料';
+      el.className = 'pill ' + (ok ? 'ok' : 'err');
+    }
+  }
 }
 
 let motorsTouched = false;

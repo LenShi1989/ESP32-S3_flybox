@@ -7,7 +7,7 @@
  * - 內建 LAN8720A RJ45 有線網路 + WiFi 無線網路 (可同時)
  * - 無藍牙: 遙控器一律經 WiFi WebSocket 連線 (2.1.0 移除藍牙功能)
  * - SPIFFS 網頁介面 (ESPAsyncWebServer) + WebSocket 即時雙向
- * - 與 KKBOX 飛控板以 Serial2 (GPIO5/GPIO17, 9600) 交換 JSON
+ * - 與 KKBOX 飛控板以 Serial2 (GPIO5/GPIO17, 115200) 交換 JSON
  * - 網頁: 系統狀態 / 網路設定 / 馬達模式 / 使用者設定 / OTA
  * - ESPAsyncWebServer + AsyncWebSocket + ElegantOTA
  * ---------------------------------------------------------------

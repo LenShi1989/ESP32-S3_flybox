@@ -1,13 +1,13 @@
 # ESP32-S3_flybox
 
-自製飛控 — M5Stack AtomS3R-Ext (ESP32-S3-PICO-1-N8R8) + BMI270
+自製飛控 — M5Stack AtomS3R-Ext (ESP32-S3-PICO-1-N8R8) + BMI270 六軸 + BMM150 地磁
 
 ## 系統架構
 
 ```
 ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
                                                      │
-                                             RS-232 9600 8N1
+                                             RS-232 115200 8N1
                                                      │
                                               ESP32-S3 飛控板
                                               (BMI270 + PID)
@@ -16,8 +16,10 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 ```
 
 - 飛控板以 PID (三軸 rate) 讀 BMI270 陀螺儀做自主平衡。
+- 機頭方向 = USB Type-C 接口方向；開機預設 4 槳 Quad-X (X4)。
+- BMI270 加速度計 + 陀螺儀做六軸互補濾波姿態，BMM150 地磁 (經 BMI270 Sensor Hub) 修正 yaw。
 - 命令與遙測都是**單行 JSON**，以 `\n` 結尾，格式與接收機、遙控器既有協定相同。
-- 接收機把飛控送出的每一行原樣廣播給 WebSocket 用戶端，因此不用改接收機。
+- 接收機把飛控送出的每一行原樣廣播給 WebSocket 用戶端，新增欄位只要網頁端解析，橋接程式不必改動。
 
 ## 目錄
 
@@ -25,7 +27,7 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 firmware/ESP32_S3_flybox/
   ESP32_S3_flybox.ino   主程式：控制迴路、命令解析、遙測
   config.h              腳位、PID、ESC、濾波等所有設定
-  imu.h                 BMI270 讀取、零點校正、卡爾曼濾波
+  imu.h                 BMI270/BMM150 讀取、零點校正、濾波、姿態融合
   pid.h                 PID (微分作用於量測值、積分限幅)
   mixer.h               Quad-X / X8 同軸混控
   motors.h              8 通道 LEDC ESC 輸出
@@ -34,12 +36,12 @@ firmware/ESP32_S3_flybox/
 firmware/WT32_ETH01_receiver/
   WT32_ETH01_receiver.ino  接收機主程式 (RJ45 + WiFi + WebSocket 橋接)
   config.h                 網路 / UART / 帳密設定
-  kkbox.h                  飛控 UART 橋接 (Serial2, 9600)
+  kkbox.h                  飛控 UART 橋接 (Serial2, 115200)
   settings.h               NVS 設定、無人機 ID
   web.h                    網頁路由、WebSocket、OTA
   data/                    SPIFFS 網頁 (index.html / app.js / style.css)
-firmware/ESP32_D1_mini_rc_rc/
-  ESP32_D1_mini_rc_rc.ino  遙控器主程式 (WiFi WebSocket 用戶端)
+firmware/ESP32_D1_mini_rc/
+  ESP32_D1_mini_rc.ino     遙控器主程式 (WiFi WebSocket 用戶端)
   config.h                 腳位、搖桿、預設 PID、AP 設定
   settings.h               /config.json 設定、FlyID、搖桿校正
   input.h                  硬體搖桿 ADC 讀取與校正、SW1~SW4
@@ -108,20 +110,21 @@ https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
 
 | 功能                          | 預設 GPIO           | 說明                      |
 | ----------------------------- | ------------------- | ------------------------- |
-| RS-232 TX                     | G9                  | 飛控 TX → 接收機 RX       |
-| RS-232 RX                     | G10                 | 飛控 RX ← 接收機 TX       |
+| RS-232 TX                     | G1                  | 飛控 TX → 接收機 RX       |
+| RS-232 RX                     | G2                  | 飛控 RX ← 接收機 TX       |
 | M1 FL / M2 FR / M3 RR / M4 RL | G5 / G6 / G7 / G8   | 上槳                      |
 | M5 FL / M6 FR / M7 RR / M8 RL | G38 / G39 / G3 / G4 | X8 下槳                   |
 | BMI270                        | SCL=G0, SDA=G45     | 板載，由 M5Unified 初始化 |
+| BMM150                        | 經 BMI270 Sensor Hub | 板載，由 M5Unified 讀取   |
 
-> **注意**：本 repo 的 `docs/` 只有模組規格書與方塊圖，沒有自製飛控板的完整原理圖，
-> 無法從文件推得唯一腳位。上表是**預設值**，請依實際拉線修改 `config.h`。
+> **注意**：腳位依 AtomS3R-Ext 官方規格：M1–M4 = G5–G8、M5–M8 = G38/G39/G3/G4，
+> RS-232 使用 PORT.CUSTOM 的 G1/G2。若實際拉線不同，請修改 `config.h`。
 > RS-232 請確認是否外接 MAX3232 之類的收發器，勿直接把 RS-232 準位接到 GPIO。
 
-馬達位置 (Quad-X，機頭朝上)：
+馬達位置 (Quad-X，Type-C 機頭朝上)：
 
 ```
-          機頭 ↑
+    Type-C / 機頭 ↑
     M1(FL) CCW     M2(FR) CW
             \   /
              \ /
@@ -159,14 +162,20 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 ```
 {"ack":"arm"}
-{"evt":"ready","fw":"ESP32-S3 Flybox","ver":"1.0.0"}
+{"evt":"ready","fw":"ESP32-S3 Flybox","ver":"2.0.0"}
 {"evt":"failsafe"}
 {"err":"bad cmd"}
-{"t":12345,"armed":1,"mcount":4,"hold":0,"gyro":{"roll":0,"pitch":0,"yaw":0},
+{"t":12345,"armed":1,"mcount":4,"hold":0,"magok":1,
+ "gyro":{"roll":0,"pitch":0,"yaw":0},
+ "att":{"roll":0,"pitch":0,"yaw":90},
+ "acc":{"x":0,"y":0,"z":-1000},
+ "mag":{"x":210,"y":-35,"z":420},
  "set":{"roll":0,"pitch":0,"yaw":0,"thr":1500},"motor":[1520,1480,1480,1520]}
 ```
 
-- 遙測預設每 200ms 一筆（9600 下約 160 bytes/筆，保留約 2 成餘裕）。
+- 遙測欄位：`gyro` 為 deg/s；`att` 為度 (yaw 0~360)；`acc` 為 mg；`mag` 為 0.1µT；
+  `magok` 表示 BMM150 是否有效。
+- 遙測預設每 200ms 一筆（115200 下約 350 bytes/筆，仍有大量餘裕）。
 - 超過 `FAILSAFE_MS`（2000ms）沒收到任何命令會自動上鎖並送出 `failsafe`。
 - 解鎖後 LED 快閃（綠），未解鎖慢閃（藍）。
 
@@ -175,7 +184,8 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 `firmware/WT32_ETH01_receiver/` 是飛控與遙控器之間的橋接：
 
 - RJ45 (LAN8720A) 有線網路 + WiFi STA + SoftAP 可同時運作。
-- 網頁（SPIFFS）顯示飛控遙測：**陀螺儀 Roll / Pitch / Yaw 數值與長條圖**、馬達輸出、解鎖狀態。
+- 網頁（SPIFFS）顯示飛控遙測：**三軸陀螺儀長條圖**、**BMI270 六軸姿態 (Roll/Pitch/Yaw + 加速度計)**、
+  **BMM150 三軸地磁與磁方位**、馬達輸出、解鎖狀態。
 - **無人機 ID 設定**（0–255，存 NVS），顯示於飛行狀態頁；`GET/POST /api/id`。
 - 飛控送出的每一行 JSON 原樣經 WebSocket 廣播，遙控器與網頁看到的是同一份資料。
 - 網頁另含網路設定、馬達模式、使用者帳密、SPIFFS 檔案瀏覽與 OTA。
@@ -184,11 +194,11 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 | 接收機           | 飛控板         |
 | ---------------- | -------------- |
-| Serial2 RX = G5  | UART1 TX = G9  |
-| Serial2 TX = G17 | UART1 RX = G10 |
+| Serial2 RX = G5  | UART1 TX = G1  |
+| Serial2 TX = G17 | UART1 RX = G2  |
 | GND              | GND            |
 
-9600 8N1，交叉對接；若中間走真正的 RS-232 準位，兩端都要加收發器（如 MAX3232）。
+115200 8N1，交叉對接；若中間走真正的 RS-232 準位，兩端都要加收發器（如 MAX3232）。
 接收機的 G16 是 PHY 電源，不可他用。
 
 ### 建置 / 上傳
@@ -210,7 +220,7 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 ## 遙控器（ESP32 D1 mini RC）
 
-`firmware/ESP32_D1_mini_rc_rc/` 是操作端：只用 2.4GHz WiFi，以 WebSocket 用戶端連接收機，
+`firmware/ESP32_D1_mini_rc/` 是操作端：只用 2.4GHz WiFi，以 WebSocket 用戶端連接收機，
 把命令轉給飛控板。
 
 - **虛擬控制搖桿**：網頁「模擬搖桿」頁，觸控/滑鼠拖曳即時送出 `setpoints` 與 `throttle`。
@@ -256,7 +266,16 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
   輸出限幅 100us、積分限幅 50us。
 - roll/pitch 的 KI 兼作自動配平：搖桿置中（< 10 deg/s）才累積積分。
 - 陀螺濾波預設為卡爾曼（Q=2.0 / R=2.0），可改用一階低通 `GYRO_LPF`。
-- 若馬達轉向相反，改 `IMU_REVERSE_ROLL/PITCH/YAW` 或調整 ESC 設定。
+- 機體軸向對應在 `config.h` 的 `IMU_GYRO_*_AXIS` / `_SIGN` 與 `IMU_ACC_*`。
+  M5Unified 校正後的板載座標為 **+X = 機頭 (USB Type-C)、+Y = 左舷、+Z = 朝上**，
+  本飛控再轉成 NED：前 = +X、右 = -Y、下 = -Z。陀螺儀正方向定義為
+  **roll 右傾、pitch 抬頭、yaw 機頭向右**；若實機轉動方向相反，只改對應的 SIGN，
+  不必改 PID 或混控。
+- BMM150 在板上相對 BMI270 旋轉了 90°，M5Unified 只反轉 X/Z，因此地磁另用
+  `IMU_MAG_*_AXIS` / `_SIGN` 對應（前 = -mY、右 = +mX、下 = +mZ）。
+- 姿態融合：roll/pitch 互補濾波時間常數 `ATT_TAU_S = 0.5s`，yaw 地磁修正 `ATT_MAG_TAU_S = 2.0s`；
+  `MAG_DECLINATION_DEG` 可設定磁偏角（台灣約 -2 ~ -4 度），`MAG_HEADING_SIGN`
+  可整組反向。
 
 ## 調機
 

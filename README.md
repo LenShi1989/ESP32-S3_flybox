@@ -1,4 +1,5 @@
 # ESP32-S3_flybox
+
 自製飛控 — M5Stack AtomS3R-Ext (ESP32-S3-PICO-1-N8R8) + BMI270
 
 ## 系統架構
@@ -58,6 +59,45 @@ docs/                   模組規格書、系統方塊圖、調機測試清單
 - 開發板選 **M5AtomS3R**；若用 ESP32 官方 core，選 **ESP32S3 Dev Module**
   並開啟 PSRAM（OPI PSRAM）；USB CDC On Boot 建議開啟
 
+### Arduino IDE 1.8.19 開發板選擇
+
+推薦設定
+M5Stack → M5AtomS3R
+
+官方 Arduino 開發文件指定使用 M5AtomS3R，AtomS3R 與 AtomS3R-Ext 使用相同主控晶片。
+
+### 安裝步驟
+
+1. 開啟 Arduino IDE 1.8.19。
+2. 進入「檔案 → 偏好設定」。
+3. 在額外的開發板管理員網址加入：
+
+```sh
+https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
+```
+
+4. 開啟「工具 → 開發板 → 開發板管理員」。
+5. 搜尋並安裝 M5Stack。
+6. 選擇：
+   工具 → 開發板 → M5Stack → M5AtomS3R
+
+   建議燒錄參數
+
+   | 設定項目         | 建議值                |
+   | ---------------- | --------------------- |
+   | Board            | M5AtomS3R             |
+   | CPU Frequency    | 240MHz                |
+   | Flash Size       | 8MB                   |
+   | Flash Mode       | QIO 80MHz             |
+   | PSRAM            | OPI PSRAM             |
+   | Partition Scheme | 8M with spiffs        |
+   | USB CDC On Boot  | Enabled               |
+   | USB Mode         | Hardware CDC and JTAG |
+   | Upload Speed     | 921600                |
+   | Upload Mode      | UART0 / Hardware CDC  |
+
+注意：上述選項會依 M5Stack 開發板套件版本略有不同。若沒有某個選項，不要自行修改底層 Flash 或 PSRAM 設定。
+
 ### 建置 / 上傳
 
 1. Arduino IDE 開啟 `firmware/ESP32_S3_flybox/ESP32_S3_flybox.ino`
@@ -66,13 +106,13 @@ docs/                   模組規格書、系統方塊圖、調機測試清單
 
 ## 接腳（`config.h`）
 
-| 功能 | 預設 GPIO | 說明 |
-| --- | --- | --- |
-| RS-232 TX | G9 | 飛控 TX → 接收機 RX |
-| RS-232 RX | G10 | 飛控 RX ← 接收機 TX |
-| M1 FL / M2 FR / M3 RR / M4 RL | G5 / G6 / G7 / G8 | 上槳 |
-| M5 FL / M6 FR / M7 RR / M8 RL | G38 / G39 / G3 / G4 | X8 下槳 |
-| BMI270 | SCL=G0, SDA=G45 | 板載，由 M5Unified 初始化 |
+| 功能                          | 預設 GPIO           | 說明                      |
+| ----------------------------- | ------------------- | ------------------------- |
+| RS-232 TX                     | G9                  | 飛控 TX → 接收機 RX       |
+| RS-232 RX                     | G10                 | 飛控 RX ← 接收機 TX       |
+| M1 FL / M2 FR / M3 RR / M4 RL | G5 / G6 / G7 / G8   | 上槳                      |
+| M5 FL / M6 FR / M7 RR / M8 RL | G38 / G39 / G3 / G4 | X8 下槳                   |
+| BMI270                        | SCL=G0, SDA=G45     | 板載，由 M5Unified 初始化 |
 
 > **注意**：本 repo 的 `docs/` 只有模組規格書與方塊圖，沒有自製飛控板的完整原理圖，
 > 無法從文件推得唯一腳位。上表是**預設值**，請依實際拉線修改 `config.h`。
@@ -98,22 +138,22 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 送到飛控（接收機原樣轉送），每行一筆 JSON：
 
-| 命令 | 範例 | 說明 |
-| --- | --- | --- |
-| ping | `{"cmd":"ping"}` | 連線測試 |
-| arm | `{"cmd":"arm"}` | 解鎖（油門歸 1000us，IMU 無回應時拒絕） |
-| disarm | `{"cmd":"disarm"}` | 上鎖 |
-| throttle | `{"cmd":"throttle","value":1500}` | 油門 1000~2000us |
-| setpoints | `{"cmd":"setpoints","roll":0,"pitch":0,"yaw":0}` | 角速度設定點 (deg/s) |
-| hold | `{"cmd":"hold","on":1}` | 定高（保持當前油門） |
-| motors | `{"cmd":"motors","count":8}` | 切換 4 / 8 槳 |
-| pid | `{"cmd":"pid","axis":"roll","kp":3,"ki":0.08,"kd":8}` | 線上調 PID |
-| motmin | `{"cmd":"motmin","index":1,"value":1050}` | 最低啟動 PWM（index 0=全部，存 NVS） |
-| nopid | `{"cmd":"nopid","on":1}` | ESC 行程校正：略過 PID |
-| calibrate | `{"cmd":"calibrate"}` | 重新校正陀螺零點（解鎖中拒絕） |
-| telemetry | `{"cmd":"telemetry","value":200}` | 遙測週期 ms（0=關閉） |
-| status | `{"cmd":"status"}` | 回報版本、油門、PID 以外的設定 |
-| led | `{"cmd":"led","mode":"blink"}` | 板載 RGB LED：on / off / blink |
+| 命令      | 範例                                                  | 說明                                    |
+| --------- | ----------------------------------------------------- | --------------------------------------- |
+| ping      | `{"cmd":"ping"}`                                      | 連線測試                                |
+| arm       | `{"cmd":"arm"}`                                       | 解鎖（油門歸 1000us，IMU 無回應時拒絕） |
+| disarm    | `{"cmd":"disarm"}`                                    | 上鎖                                    |
+| throttle  | `{"cmd":"throttle","value":1500}`                     | 油門 1000~2000us                        |
+| setpoints | `{"cmd":"setpoints","roll":0,"pitch":0,"yaw":0}`      | 角速度設定點 (deg/s)                    |
+| hold      | `{"cmd":"hold","on":1}`                               | 定高（保持當前油門）                    |
+| motors    | `{"cmd":"motors","count":8}`                          | 切換 4 / 8 槳                           |
+| pid       | `{"cmd":"pid","axis":"roll","kp":3,"ki":0.08,"kd":8}` | 線上調 PID                              |
+| motmin    | `{"cmd":"motmin","index":1,"value":1050}`             | 最低啟動 PWM（index 0=全部，存 NVS）    |
+| nopid     | `{"cmd":"nopid","on":1}`                              | ESC 行程校正：略過 PID                  |
+| calibrate | `{"cmd":"calibrate"}`                                 | 重新校正陀螺零點（解鎖中拒絕）          |
+| telemetry | `{"cmd":"telemetry","value":200}`                     | 遙測週期 ms（0=關閉）                   |
+| status    | `{"cmd":"status"}`                                    | 回報版本、油門、PID 以外的設定          |
+| led       | `{"cmd":"led","mode":"blink"}`                        | 板載 RGB LED：on / off / blink          |
 
 ### 回應與遙測
 
@@ -142,11 +182,11 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 ### 接線（與飛控板對接）
 
-| 接收機 | 飛控板 |
-| --- | --- |
-| Serial2 RX = G5 | UART1 TX = G9 |
+| 接收機           | 飛控板         |
+| ---------------- | -------------- |
+| Serial2 RX = G5  | UART1 TX = G9  |
 | Serial2 TX = G17 | UART1 RX = G10 |
-| GND | GND |
+| GND              | GND            |
 
 9600 8N1，交叉對接；若中間走真正的 RS-232 準位，兩端都要加收發器（如 MAX3232）。
 接收機的 G16 是 PHY 電源，不可他用。
@@ -182,13 +222,13 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 ### 接腳（`config.h`）
 
-| 功能 | GPIO |
-| --- | --- |
-| 油門 / 偏航 / 俯仰 / 橫滾 | G39 / G35 / G33 / G34（ADC1） |
-| VRC1（選 FlyID / 切換 OLED 頁） | G36（ADC1） |
+| 功能                               | GPIO                              |
+| ---------------------------------- | --------------------------------- |
+| 油門 / 偏航 / 俯仰 / 橫滾          | G39 / G35 / G33 / G34（ADC1）     |
+| VRC1（選 FlyID / 切換 OLED 頁）    | G36（ADC1）                       |
 | SW1 / SW2 / SW3(ARM) / SW4(DISARM) | G10 / G18 / G19 / G23（LOW = ON） |
-| OLED SDA / SCL（SSD1306 0x3C） | G17 / G16 |
-| 板載 LED | G2 |
+| OLED SDA / SCL（SSD1306 0x3C）     | G17 / G16                         |
+| 板載 LED                           | G2                                |
 
 > WiFi 開啟時 ADC2 不可用，搖桿與 VRC1 一律接 ADC1；不要接回 G13（ADC2）。
 

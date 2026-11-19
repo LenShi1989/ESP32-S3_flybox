@@ -24,37 +24,38 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 ## 目錄
 
 ```
-firmware/ESP32_S3_flybox/
-  ESP32_S3_flybox.ino   主程式：控制迴路、命令解析、遙測
-  config.h              腳位、PID、ESC、濾波等所有設定
-  imu.h                 BMI270/BMM150 讀取、零點校正、濾波、姿態融合
-  pid.h                 PID (微分作用於量測值、積分限幅)
-  mixer.h               Quad-X / X8 同軸混控
-  motors.h              8 通道 LEDC ESC 輸出
-  link.h                UART1 單行 JSON 收發
-  jsonutil.h            輕量 JSON 解析
-firmware/WT32_ETH01_receiver/
-  WT32_ETH01_receiver.ino  接收機主程式 (RJ45 + WiFi + WebSocket 橋接)
-  config.h                 網路 / UART / 帳密設定
-  kkbox.h                  飛控 UART 橋接 (Serial2, 115200)
-  settings.h               NVS 設定、無人機 ID
-  web.h                    網頁路由、WebSocket、OTA
-  data/                    SPIFFS 網頁 (index.html / app.js / style.css)
-firmware/ESP32_D1_mini_rc/
-  ESP32_D1_mini_rc.ino     遙控器主程式 (WiFi WebSocket 用戶端)
-  config.h                 腳位、搖桿、預設 PID、AP 設定
-  settings.h               /config.json 設定、FlyID、搖桿校正
-  input.h                  硬體搖桿 ADC 讀取與校正、SW1~SW4
-  display.h                SSD1306 OLED 4 頁顯示
-  link.h                   與接收機的 WebSocket 連線、送命令
-  telem.h                  遙測解析
-  web.h                    網頁路由、PID / 模擬搖桿 / 馬達校正 API
-  data/                    SPIFFS 網頁 (index.html / app.js / style.css / config.json)
-  mdns.h                   輕量 mDNS (flybox-rc.local)，節省 flash 空間
-tools/
-  spiffs.bat               產生 spiffs.bin (SPIFFS 網頁檔映像，可 OTA 上傳)
-  make_spiffs.ps1          spiffs.bat 的 PowerShell 實作
-docs/                   模組規格書、系統方塊圖、調機測試清單
+├── docs/                           # 模組規格書、系統方塊圖、調機測試清單
+├── firmware/
+│   ├── ESP32_S3_flybox/
+│   │   ├── ESP32_S3_flybox.ino     # 主程式：控制迴路、命令解析、遙測
+│   │   ├── config.h                # 腳位、PID、ESC、濾波等所有設定
+│   │   ├── imu.h                   # BMI270/BMM150 讀取、零點校正、濾波、姿態融合
+│   │   ├── pid.h                   # PID (微分作用於量測值、積分限幅)
+│   │   ├── mixer.h                 # Quad-X / X8 同軸混控
+│   │   ├── motors.h                # 8 通道 LEDC ESC 輸出
+│   │   ├── link.h                  # UART1 單行 JSON 收發
+│   │   └── jsonutil.h              # 輕量 JSON 解析
+│   ├── WT32_ETH01_receiver/
+│   │   ├── WT32_ETH01_receiver.ino # 接收機主程式 (RJ45 + WiFi + WebSocket 橋接)
+│   │   ├── config.h                # 網路 / UART / 帳密設定
+│   │   ├── kkbox.h                 # 飛控 UART 橋接 (Serial2, 115200)
+│   │   ├── settings.h              # NVS 設定、無人機 ID
+│   │   ├── web.h                   # 網頁路由、WebSocket、OTA
+│   │   └── data/                   # SPIFFS 網頁 (index.html / app.js / style.css)
+│   └── ESP32_D1_mini_rc/
+│       ├── ESP32_D1_mini_rc.ino    # 遙控器主程式 (WiFi WebSocket 用戶端)
+│       ├── config.h                # 腳位、搖桿、預設 PID、AP 設定
+│       ├── settings.h              # /config.json 設定、FlyID、搖桿校正
+│       ├── input.h                 # 硬體搖桿 ADC 讀取與校正、SW1~SW4
+│       ├── display.h               # SSD1306 OLED 4 頁顯示
+│       ├── link.h                  # 與接收機的 WebSocket 連線、送命令
+│       ├── telem.h                 # 遙測解析
+│       ├── web.h                   # 網頁路由、PID / 模擬搖桿 / 馬達校正 API
+│       ├── data/                   # SPIFFS 網頁 (index.html / app.js / style.css / config.json)
+│       └── mdns.h                  # 輕量 mDNS (flybox-rc.local)，節省 flash 空間
+└── tools/
+    ├── spiffs.bat                  # 產生 spiffs.bin (SPIFFS 網頁檔映像，可 OTA 上傳)
+    └── make_spiffs.ps1             # spiffs.bat 的 PowerShell 實作
 ```
 
 ## 開發環境
@@ -112,13 +113,13 @@ https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
 
 ## 接腳（`config.h`）
 
-| 功能                          | 預設 GPIO           | 說明                      |
-| ----------------------------- | ------------------- | ------------------------- |
-| RS-232 TX                     | G1                  | 飛控 TX → 接收機 RX       |
-| RS-232 RX                     | G2                  | 飛控 RX ← 接收機 TX       |
-| M1 FL / M2 FR / M3 RR / M4 RL | G5 / G6 / G7 / G8   | 上槳                      |
-| M5 FL / M6 FR / M7 RR / M8 RL | G38 / G39 / G3 / G4 | X8 下槳                   |
-| BMI270                        | SCL=G0, SDA=G45     | 板載，由 M5Unified 初始化 |
+| 功能                          | 預設 GPIO            | 說明                      |
+| ----------------------------- | -------------------- | ------------------------- |
+| RS-232 TX                     | G1                   | 飛控 TX → 接收機 RX       |
+| RS-232 RX                     | G2                   | 飛控 RX ← 接收機 TX       |
+| M1 FL / M2 FR / M3 RR / M4 RL | G5 / G6 / G7 / G8    | 上槳                      |
+| M5 FL / M6 FR / M7 RR / M8 RL | G38 / G39 / G3 / G4  | X8 下槳                   |
+| BMI270                        | SCL=G0, SDA=G45      | 板載，由 M5Unified 初始化 |
 | BMM150                        | 經 BMI270 Sensor Hub | 板載，由 M5Unified 讀取   |
 
 > **注意**：腳位依 AtomS3R-Ext 官方規格：M1–M4 = G5–G8、M5–M8 = G38/G39/G3/G4，
@@ -196,11 +197,11 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 ### 接線（與飛控板對接）
 
-| 接收機           | 飛控板         |
-| ---------------- | -------------- |
-| Serial2 RX = G5  | UART1 TX = G1  |
-| Serial2 TX = G17 | UART1 RX = G2  |
-| GND              | GND            |
+| 接收機           | 飛控板        |
+| ---------------- | ------------- |
+| Serial2 RX = G5  | UART1 TX = G1 |
+| Serial2 TX = G17 | UART1 RX = G2 |
+| GND              | GND           |
 
 115200 8N1，交叉對接；若中間走真正的 RS-232 準位，兩端都要加收發器（如 MAX3232）。
 接收機的 G16 是 PHY 電源，不可他用。
@@ -228,15 +229,16 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 `data/` 除了用 USB 上傳 SPIFFS 映像，也可以先在本機打包再由網頁上傳：
 
-1. 執行 `tools\spiffs.bat`（雙擊或命令列）→ 產生
-   `firmware/WT32_ETH01_receiver/spiffs.bin`（預設分割區 1.5MB，`0x160000`）
+1. 執行 `tools\spiffs.bat`（雙擊或命令列）→ 產生 `build/spiffs.bin`
+   （專案根目錄下的 `build/`，預設分割區 1.5MB，`0x160000`）
 2. 接收機網頁 →「OTA 更新」→「網頁檔映像 (spiffs.bin)」→ 選擇檔案上傳
 3. 上傳完成後裝置自動重開機，網頁即為新版本
 
 - 腳本會自動尋找 Arduino ESP32 core 內附的 `mkspiffs.exe`；找不到時可用
   `-Mkspiffs <路徑>`，或設定環境變數 `MKSPIFFS`
-- 其他資料夾 / 分割區大小：
+- 其他資料夾 / 分割區大小 / 輸出位置（相對路徑以專案根目錄為基準）：
   `tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data -Size 0x160000`
+  `tools\spiffs.bat -Out build\rc-spiffs.bin`
 - `spiffs.bin`、`build/`、`*.ino.*.bin` 已列入 `.gitignore`
 - 映像會整塊覆蓋 SPIFFS：上傳中斷會使網頁檔損毀（開機自動格式化 → 網頁空白），
   此時請改用 USB 重新上傳

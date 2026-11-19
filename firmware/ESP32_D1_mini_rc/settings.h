@@ -15,7 +15,7 @@
 
 #define CONFIG_PATH "/config.json"
 
-/* SoftAP SSID = 前綴 + MAC 後 4 碼 (例: KKBOX-RC-A1B2) */
+/* SoftAP SSID = 前綴 + MAC 後 4 碼 (例: Flybox-RC-A1B2) */
 static inline String apSsid() {
   uint8_t mac[6] = {0};
   esp_read_mac(mac, ESP_MAC_WIFI_STA);

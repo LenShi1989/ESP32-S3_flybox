@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <ETH.h>
 #include <SPIFFS.h>
+#include <Update.h>
 #include <ESPAsyncWebServer.h>
 #define ELEGANTOTA_USE_ASYNC_WEBSERVER 1
 #include <ElegantOTA.h>
@@ -21,6 +22,11 @@ struct Session { String token; uint32_t born; };
 static Session gSessions[SESSION_MAX];
 
 static uint32_t gRebootAt = 0;   /* >0 表示排程重開機 */
+
+/* SPIFFS 映像 OTA (spiffs.bin) 狀態 */
+static bool   gFsOtaAuth  = false;
+static bool   gFsOtaOk    = false;
+static size_t gFsOtaBytes = 0;
 
 static String cookieGet(AsyncWebServerRequest* r, const char* name) {
   if (!r->hasHeader("Cookie")) return "";
@@ -310,6 +316,44 @@ static void webSetup() {
       sendErr(r, "wrong password", 401);
     }
   });
+
+  /* ---- OTA: SPIFFS 網頁檔映像 (spiffs.bin) ----
+   * 以 multipart/form-data (欄位 file) 上傳; 寫入前先卸載 SPIFFS,
+   * 完成後自動重開機。上傳中斷會使網頁檔損毀 (需 USB 重傳)。
+   */
+  server.on("/api/ota/spiffs", HTTP_POST,
+    [](AsyncWebServerRequest* r) {
+      if (!gFsOtaAuth) { sendErr(r, "unauthorized", 401); return; }
+      if (!gFsOtaOk)   { sendErr(r, "spiffs ota failed", 500); return; }
+      sendJson(r, "{\"ok\":true,\"bytes\":" + String((unsigned)gFsOtaBytes) + "}");
+      gRebootAt = millis() + 1500;   /* 等回應送完再重開 */
+    },
+    [](AsyncWebServerRequest* r, String filename, size_t index, uint8_t* data,
+       size_t len, bool final) {
+      if (!index) {
+        gFsOtaAuth  = isAuthed(r);
+        gFsOtaOk    = false;
+        gFsOtaBytes = 0;
+        if (!gFsOtaAuth) return;
+        Serial.printf("[OTA] spiffs upload start: %s\n", filename.c_str());
+        SPIFFS.end();                       /* 寫入前必須卸載 */
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_SPIFFS)) {
+          Update.printError(Serial);
+          return;
+        }
+      }
+      if (!gFsOtaAuth || !Update.isRunning()) return;
+      if (Update.write(data, len) != len) { Update.printError(Serial); return; }
+      gFsOtaBytes += len;
+      if (final) {
+        if (Update.end(true)) {
+          gFsOtaOk = true;
+          Serial.printf("[OTA] spiffs ok: %u bytes\n", (unsigned)gFsOtaBytes);
+        } else {
+          Update.printError(Serial);
+        }
+      }
+    });
 
   /* ---- OTA (ElegantOTA, 無帳密驗證) ---- */
   ElegantOTA.begin(&server);

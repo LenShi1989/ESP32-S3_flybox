@@ -315,8 +315,21 @@
     <section id="page-ota" class="page">
       <h2>OTA 更新</h2>
       <div class="card">
+        <h3>韌體 (app)</h3>
         <p class="muted">透過瀏覽器上傳新的韌體 (.bin)。上傳完成後裝置會自動重新啟動。</p>
         <a class="btn" href="/update" target="_blank" rel="noopener">開啟 OTA 上傳頁面</a>
+      </div>
+      <div class="card">
+        <h3>網頁檔映像 (spiffs.bin)</h3>
+        <p class="muted">先執行 <code>tools\spiffs.bat</code> 從 <code>data/</code> 產生
+          <code>spiffs.bin</code>，再於此上傳。映像會直接寫入 SPIFFS 分割區，完成後自動重開機。</p>
+        <div class="row">
+          <input type="file" id="fs-file" accept=".bin">
+          <button id="fs-upload">上傳 spiffs.bin</button>
+        </div>
+        <div class="progress"><span id="fs-bar"></span></div>
+        <p class="muted small" id="fs-state">尚未選擇檔案</p>
+        <p class="muted small">注意：上傳中斷會使網頁檔損毀，需改用 USB 重新上傳，請保持連線穩定。</p>
       </div>
     </section>
 

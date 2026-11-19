@@ -7,7 +7,7 @@
 #include <esp_mac.h>
 #include "config.h"
 
-/* SoftAP SSID = 前綴 + MAC 後 4 碼 (例: KKBOX-Receiver-A1B2) */
+/* SoftAP SSID = 前綴 + MAC 後 4 碼 (例: Flybox-Receiver-A1B2) */
 static inline String apSsid() {
   uint8_t mac[6] = {0};
   /* 直接讀 eFuse 基礎 MAC, 避免 WiFi 驅動尚未啟動時 macAddress() 回傳 0 */

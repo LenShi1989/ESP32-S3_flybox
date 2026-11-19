@@ -1,7 +1,7 @@
 /*
  * WT32-ETH01 接收機 (Receiver) — KKBOX 飛控系統
  * ---------------------------------------------------------------
- * 版本 (Version): 2.1.1   (見 config.h 的 FW_VERSION)
+ * 版本 (Version): 2.2.0   (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    WT32-ETH01 Receiver
  * ---------------------------------------------------------------
  * - 內建 LAN8720A RJ45 有線網路 + WiFi 無線網路 (可同時)
@@ -9,6 +9,7 @@
  * - SPIFFS 網頁介面 (ESPAsyncWebServer) + WebSocket 即時雙向
  * - 與 KKBOX 飛控板以 Serial2 (GPIO5/GPIO17, 115200) 交換 JSON
  * - 網頁: 系統狀態 / 網路設定 / 馬達模式 / 使用者設定 / OTA
+ * - mDNS: http://flybox-receiver.local/ (區網內免記 IP)
  * - ESPAsyncWebServer + AsyncWebSocket + ElegantOTA
  * ---------------------------------------------------------------
  * 網頁需先登入 (預設 admin / kkbox)。
@@ -17,6 +18,7 @@
  */
 
 #include <Arduino.h>
+#include <ESPmDNS.h>
 #include "soc/rtc_cntl_reg.h"   /* BOD (電壓不足偵測) 停用 */
 #include "config.h"
 #include "settings.h"
@@ -59,7 +61,7 @@ void setup() {
   /* ---------- WiFi: STA + AP 共存 ---------- */
   /* 一律啟動 SoftAP, 確保任情況下都能進入設定頁; STA 則連線外部 WiFi */
   WiFi.mode(WIFI_AP_STA);
-  WiFi.setHostname("kkbox-receiver");
+  WiFi.setHostname(MDNS_HOST);
   {
     String ap = apSsid();
     WiFi.softAP(ap.c_str(), AP_PASS);
@@ -68,6 +70,14 @@ void setup() {
   if (gSet.ssid.length()) {
     WiFi.begin(gSet.ssid.c_str(), gSet.wpass.c_str());
     Serial.printf("[WiFi] connecting to %s ...\n", gSet.ssid.c_str());
+  }
+
+  /* ---------- mDNS ---------- */
+  if (MDNS.begin(MDNS_HOST)) {
+    MDNS.addService("http", "tcp", WEB_PORT);
+    Serial.printf("[mDNS] http://%s.local/\n", MDNS_HOST);
+  } else {
+    Serial.println("[mDNS] 啟動失敗");
   }
 
   /* ---------- 飛控板 UART & 網頁 ---------- */

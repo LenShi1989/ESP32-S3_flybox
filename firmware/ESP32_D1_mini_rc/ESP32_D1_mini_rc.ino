@@ -1,7 +1,7 @@
 /*
  * ESP32 D1 mini 遙控器 (RC) — KKBOX 飛控系統
  * ---------------------------------------------------------------
- * 版本 (Version): 2.1.3   (見 config.h 的 FW_VERSION)
+ * 版本 (Version): 2.2.0   (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    ESP32 D1 mini RC
  * ---------------------------------------------------------------
  * - 只用 2.4G WiFi: WebSocket 用戶端連線 WT32-ETH01 接收機
@@ -39,6 +39,7 @@ static AsyncWebSocket localWs("/ws");
 #include "display.h"
 #include "link.h"
 #include "web.h"
+#include "mdns.h"
 
 static uint32_t lastOled  = 0;
 static uint32_t lastInput = 0;
@@ -121,7 +122,7 @@ void setup() {
 
   /* ---------- WiFi: STA + AP 共存 (僅 2.4GHz) ---------- */
   WiFi.mode(WIFI_AP_STA);
-  WiFi.setHostname("kkbox-rc");
+  WiFi.setHostname(MDNS_HOST);
   {
     IPAddress apIp, apMask;
     apIp.fromString(AP_IP_ADDR);
@@ -135,6 +136,10 @@ void setup() {
     WiFi.begin(gSet.ssid.c_str(), gSet.wpass.c_str());
     Serial.printf("[WiFi] connecting to %s ...\n", gSet.ssid.c_str());
   }
+
+  /* ---------- mDNS (輕量: 只回應 A 記錄) ---------- */
+  mdnsBegin();
+  Serial.printf("[mDNS] http://%s.local/\n", MDNS_HOST);
 
   webSetup();
   if (gSet.rxHost.length()) linkBegin();
@@ -162,6 +167,7 @@ void loop() {
   }
 
   linkLoop();
+  mdnsLoop();
   localWs.cleanupClients();
   ElegantOTA.loop();
 

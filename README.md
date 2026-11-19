@@ -50,6 +50,10 @@ firmware/ESP32_D1_mini_rc/
   telem.h                  遙測解析
   web.h                    網頁路由、PID / 模擬搖桿 / 馬達校正 API
   data/                    SPIFFS 網頁 (index.html / app.js / style.css / config.json)
+  mdns.h                   輕量 mDNS (flybox-rc.local)，節省 flash 空間
+tools/
+  spiffs.bat               產生 spiffs.bin (SPIFFS 網頁檔映像，可 OTA 上傳)
+  make_spiffs.ps1          spiffs.bat 的 PowerShell 實作
 docs/                   模組規格書、系統方塊圖、調機測試清單
 ```
 
@@ -213,10 +217,29 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 ### 使用
 
 - 預設帳密 `admin` / `admin`（`config.h` 的 `DEF_USER` / `DEF_PASS`，登入後可改）
-- SoftAP：`KKBOX-Receiver-XXXX`（XXXX = MAC 後四碼），密碼 `12345678`
-- 網頁：`http://<接收機 IP>/`，WebSocket：`/ws`（需 `?token=` 或登入 cookie）
+- SoftAP：`Flybox-Receiver-XXXX`（XXXX = MAC 後四碼），密碼 `12345678`
+- 網頁：`http://<接收機 IP>/`，或區網 mDNS `http://flybox-receiver.local/`
+- WebSocket：`/ws`（需 `?token=` 或登入 cookie）
 - 遙控器用的裝置 token 在「使用者設定」頁可重新產生
-- 常用 API：`/api/status`、`/api/telemetry`、`/api/id`、`/api/command`（POST 單行 JSON 轉送飛控）
+- 常用 API：`/api/status`、`/api/telemetry`、`/api/id`、`/api/command`（POST 單行 JSON 轉送飛控）、
+  `/api/ota/spiffs`（POST `spiffs.bin` 網頁檔映像，需登入）
+
+### 網頁檔 (SPIFFS) OTA 更新
+
+`data/` 除了用 USB 上傳 SPIFFS 映像，也可以先在本機打包再由網頁上傳：
+
+1. 執行 `tools\spiffs.bat`（雙擊或命令列）→ 產生
+   `firmware/WT32_ETH01_receiver/spiffs.bin`（預設分割區 1.5MB，`0x160000`）
+2. 接收機網頁 →「OTA 更新」→「網頁檔映像 (spiffs.bin)」→ 選擇檔案上傳
+3. 上傳完成後裝置自動重開機，網頁即為新版本
+
+- 腳本會自動尋找 Arduino ESP32 core 內附的 `mkspiffs.exe`；找不到時可用
+  `-Mkspiffs <路徑>`，或設定環境變數 `MKSPIFFS`
+- 其他資料夾 / 分割區大小：
+  `tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data -Size 0x160000`
+- `spiffs.bin`、`build/`、`*.ino.*.bin` 已列入 `.gitignore`
+- 映像會整塊覆蓋 SPIFFS：上傳中斷會使網頁檔損毀（開機自動格式化 → 網頁空白），
+  此時請改用 USB 重新上傳
 
 ## 遙控器（ESP32 D1 mini RC）
 
@@ -254,10 +277,12 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 2. 函式庫：**Adafruit GFX**、**Adafruit SSD1306**、**ArduinoJson**、
    **ESP Async WebServer**、**Async TCP**、**ElegantOTA**、**WebSockets**（Links2004）
 3. 上傳程式後，把 `data/` 以 SPIFFS 映像上傳（`config.json` 為預設設定）
-4. 網頁：`http://192.168.10.1/`（SoftAP `KKBOX-RC-XXXX`，密碼 `12345678`），帳密 `admin` / `admin`
+4. 網頁：`http://192.168.10.1/` 或 `http://flybox-rc.local/`（SoftAP `Flybox-RC-XXXX`，
+   密碼 `12345678`），帳密 `admin` / `admin`
 5. 先在網頁「網路設定」填入接收機 IP / token，之後才會建立 WebSocket 連線
 
-> Flash 使用率約 99%（1.30MB / 1.31MB），再加功能要先換分割區配置。
+> Flash 使用率約 99.9%（1.31MB / 1.31MB）；mDNS 以輕量實作（僅回應 A 記錄）節省空間，
+> 再加功能需先換分割區配置。
 
 ## 控制參數
 

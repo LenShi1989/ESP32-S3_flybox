@@ -629,3 +629,39 @@ function start() {
     if (ok.ok) { start(); } else { showLogin(); }
   } catch (e) { showLogin(); }
 })();
+
+/* ---------- SPIFFS 映像 OTA (spiffs.bin) ---------- */
+(function () {
+  const fileEl = $('fs-file');
+  if (!fileEl) return;
+  $('fs-upload').addEventListener('click', () => {
+    const f = fileEl.files[0];
+    if (!f) { toast('請先選擇 spiffs.bin', 'err'); return; }
+    if (!confirm('上傳 SPIFFS 映像會覆蓋目前網頁檔，完成後自動重開機。確定繼續？')) return;
+
+    const fd = new FormData();
+    fd.append('file', f, f.name);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/ota/spiffs');
+    if (TOKEN) xhr.setRequestHeader('X-Auth', TOKEN);
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable) return;
+      const p = Math.round(e.loaded / e.total * 100);
+      $('fs-bar').style.width = p + '%';
+      $('fs-state').textContent = '上傳中 ' + p + '% (' + e.loaded + '/' + e.total + ' bytes)';
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        $('fs-bar').style.width = '100%';
+        $('fs-state').textContent = '完成，裝置重新啟動中…';
+        toast('SPIFFS 映像已上傳');
+      } else {
+        $('fs-state').textContent = '失敗：' + xhr.responseText;
+        toast('上傳失敗', 'err');
+      }
+    };
+    xhr.onerror = () => { $('fs-state').textContent = '上傳失敗 (連線中斷)'; toast('上傳失敗', 'err'); };
+    xhr.send(fd);
+  });
+})();

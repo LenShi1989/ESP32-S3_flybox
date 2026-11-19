@@ -4,7 +4,7 @@
 /* =============================================================
  * ESP32 D1 mini 遙控器 (RC) 設定 — 純 2.4G WiFi 版
  * -------------------------------------------------------------
- * 版本 (Version): 2.1.3   (見 FW_VERSION)
+ * 版本 (Version): 2.2.0   (見 FW_VERSION)
  * 名稱 (Name):    ESP32 D1 mini RC
  * -------------------------------------------------------------
  * 功能:
@@ -20,7 +20,7 @@
 #include <Arduino.h>
 
 #define FW_NAME "ESP32 D1 mini RC"
-#define FW_VERSION "2.1.3"
+#define FW_VERSION "2.2.0"
 
 /* ---------- OLED (SSD1306 I2C, 沿用測試碼接線) ---------- */
 #define OLED_SDA 17
@@ -74,8 +74,10 @@
 /* ---------- Web / AP ---------- */
 #define WEB_PORT 80
 /* SoftAP 一律啟動, 與 STA 共存; SSID = 前綴 + MAC 後 4 碼 */
-#define AP_SSID_PREFIX "KKBOX-RC-"
+#define AP_SSID_PREFIX "Flybox-RC-"
 #define AP_PASS "12345678"
+/* mDNS 主機名: 區網內可用 http://flybox-rc.local/ 連線 (不必知道 IP) */
+#define MDNS_HOST "flybox-rc"
 /* RC 的 SoftAP 使用 192.168.10.x, 與接收機 (192.168.4.x) 區隔 */
 #define AP_IP_ADDR "192.168.10.1"
 #define SESSION_MAX 8

@@ -1,0 +1,8 @@
+# ---- Arduino build artifacts ----
+build/
+*.ino.*.bin
+spiffs.bin
+*.tmp
+
+# ---- Office lock files ----
+~$*

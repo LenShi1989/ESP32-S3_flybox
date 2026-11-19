@@ -305,3 +305,7 @@ html[data-theme="glass"] .login-overlay{background-image:var(--bg-image);backgro
 .pill.err{color:var(--err);border-color:var(--err)}
 .tbl.compact th,.tbl.compact td{padding:6px 8px;font-size:13px}
 @media (max-width:640px){.att-grid{gap:6px}.att-item{padding:8px 4px}.att-v{font-size:20px}}
+
+/* OTA / 上傳進度條 */
+.progress{height:8px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;margin:10px 0 6px}
+.progress > span{display:block;height:100%;width:0;background:#37c2ff;transition:width .15s linear}

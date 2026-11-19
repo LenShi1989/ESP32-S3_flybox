@@ -4,7 +4,7 @@
 /* =============================================================
  * WT32-ETH01 接收機 (Receiver) 設定
  * -------------------------------------------------------------
- * 版本 (Version): 2.1.1   (見 FW_VERSION)
+ * 版本 (Version): 2.2.0   (見 FW_VERSION)
  * 名稱 (Name):    WT32-ETH01 Receiver
  * -------------------------------------------------------------
  * 功能:
@@ -18,7 +18,7 @@
 #include <Arduino.h>
 
 #define FW_NAME    "WT32-ETH01 Receiver"
-#define FW_VERSION "2.1.1"
+#define FW_VERSION "2.2.0"
 
 /* ---------- 與 KKBOX 飛控板的 UART ---------- */
 #define KK_RX_PIN   5
@@ -39,8 +39,10 @@
 /* ---------- Web / AP ---------- */
 #define WEB_PORT        80
 /* SoftAP 一律啟動, 與 STA 共存; SSID = 前綴 + MAC 後 4 碼 (見 settings.h apSsid()) */
-#define AP_SSID_PREFIX  "KKBOX-Receiver-"
+#define AP_SSID_PREFIX  "Flybox-Receiver-"
 #define AP_PASS         "12345678"    /* SoftAP 密碼, 至少 8 碼 */
+/* mDNS 主機名: 區網內可用 http://flybox-receiver.local/ 連線 (不必知道 IP) */
+#define MDNS_HOST       "flybox-receiver"
 #define SESSION_MAX     8
 
 /* ---------- 預設帳密 ---------- */

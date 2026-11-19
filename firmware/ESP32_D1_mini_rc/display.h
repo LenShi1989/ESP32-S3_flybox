@@ -48,7 +48,7 @@ static inline void oledBegin() {
   oled.setTextSize(1);
   oled.setTextColor(SSD1306_WHITE);
   oled.setCursor(0, 0);
-  oled.println("KKBOX RC boot...");
+  oled.println("Flybox RC boot...");
   oled.display();
 }
 

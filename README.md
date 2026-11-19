@@ -329,3 +329,28 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 - 首次測試請拆槳；確認馬達序號、轉向與混控方向正確再裝槳。
 - `arm` 後油門即時生效，請先把機體固定好。
 - ESC 行程校正（`nopid`）期間不套用最低啟動 PWM，可回到 1000us。
+
+## 疑難排解
+
+### 開機後在啟動 WiFi 時當機（`tx_pwctrl_init` / `BREAKN instr`）
+
+遙控器（D1 mini RC）完成 ID／校正流程後，若一啟動 WiFi 就出現
+`Guru Meditation Error: ... Debug exception reason: BREAKN instr`，把 backtrace
+位址用 `addr2line` 反查會落在 `tx_pwctrl_init` → `register_chipv7_phy` →
+`esp_phy_enable`。這是 ESP32 射頻校正階段，與網頁、OTA、mDNS 程式無關
+（當機發生在 WiFi 任務，不是 loopTask）。常見原因有兩個：
+
+1. **供電瞬間不足（最常見）**：細 USB 線、機殼前方 USB、沒獨立電源的 HUB，
+   或電池電壓偏低時，射頻校正的電流峰值會讓 3.3V 瞬間下陷。換短線／主機板
+   後方 USB／自帶電源的 HUB，並在 3V3 與 GND 之間加 100–470µF 電容。
+   遙控器韌體啟動時會關閉 brownout 偵測（避免誤重置），所以電壓下陷不會出現
+   `Brownout detector was triggered`，而是直接當在 PHY，容易被誤認為程式問題。
+2. **NVS 內的 PHY 校正資料損毀**：用 USB 清除 NVS 後重開，讓 PHY 重新校正。
+
+```powershell
+# 清除 NVS（含 PHY 校正資料與 WiFi 設定；SPIFFS 的 /config.json 不受影響）
+python -m esptool --chip esp32 -p COM3 erase_region 0x9000 0x4000
+```
+
+遙控器 2.3.1 起開機時會印出 `[SYS] 重置原因: ...`；若連續 3 次異常開機
+（PANIC / WDT），會自動清除 NVS 的 `phy` 命名空間並重新校正，避免卡在開機當機。

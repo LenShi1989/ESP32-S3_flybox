@@ -1,7 +1,7 @@
 /*
  * ESP32 D1 mini 遙控器 (RC) — KKBOX 飛控系統
  * ---------------------------------------------------------------
- * 版本 (Version): 2.3.0   (見 config.h 的 FW_VERSION)
+ * 版本 (Version): 2.3.1   (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    ESP32 D1 mini RC
  * ---------------------------------------------------------------
  * - 只用 2.4G WiFi: WebSocket 用戶端連線 WT32-ETH01 接收機
@@ -26,6 +26,9 @@
 
 #include <Arduino.h>
 #include "soc/rtc_cntl_reg.h"   /* BOD (電壓不足偵測) 停用 */
+#include <esp_system.h>
+#include <esp_attr.h>
+#include <nvs.h>
 #include "config.h"
 #include "settings.h"
 #include <ESPAsyncWebServer.h>
@@ -45,6 +48,61 @@ static uint32_t lastOled  = 0;
 static uint32_t lastInput = 0;
 static uint32_t lastLed   = 0;
 static bool     ledState  = false;
+
+/* =============================================================
+ * 開機健康檢查: 連續異常開機時清除損毀的 PHY 校正資料
+ * -------------------------------------------------------------
+ * ESP32 會把射頻校正資料存在 NVS 的 "phy" 命名空間。若該資料損毀,
+ * 每次啟動 WiFi 都會在 PHY 初始化 (tx_pwctrl_init) 觸發
+ * "Guru Meditation ... BREAKN instr" 當機, 而且無法從網頁復原。
+ * 因此連續 3 次異常開機就清掉重校正; 正常開機則把計數歸零。
+ * RTC_NOINIT 記憶體斷電後是隨機值, 所以用 magic 值確認有效性。
+ * ============================================================= */
+#define RC_BOOT_MAGIC 0x52434247u   /* "RCBG" */
+RTC_NOINIT_ATTR static uint32_t gBootMagic;
+RTC_NOINIT_ATTR static uint32_t gAbnormalBoots;
+
+static const char* resetReasonName(esp_reset_reason_t r) {
+  switch (r) {
+    case ESP_RST_POWERON:   return "POWERON";
+    case ESP_RST_EXT:       return "EXT";
+    case ESP_RST_SW:        return "SW";
+    case ESP_RST_PANIC:     return "PANIC";
+    case ESP_RST_INT_WDT:   return "INT_WDT";
+    case ESP_RST_TASK_WDT:  return "TASK_WDT";
+    case ESP_RST_WDT:       return "WDT";
+    case ESP_RST_BROWNOUT:  return "BROWNOUT";
+    case ESP_RST_DEEPSLEEP: return "DEEPSLEEP";
+    case ESP_RST_SDIO:      return "SDIO";
+    default:                return "UNKNOWN";
+  }
+}
+
+static void bootHealthCheck() {
+  esp_reset_reason_t rr = esp_reset_reason();
+  if (gBootMagic != RC_BOOT_MAGIC) {   /* 冷啟動: RTC 記憶體內容無效 */
+    gBootMagic = RC_BOOT_MAGIC;
+    gAbnormalBoots = 0;
+  }
+  bool bad = (rr == ESP_RST_PANIC || rr == ESP_RST_INT_WDT ||
+              rr == ESP_RST_TASK_WDT || rr == ESP_RST_WDT);
+  if (bad) { if (gAbnormalBoots < 10) gAbnormalBoots++; }
+  else     { gAbnormalBoots = 0; }
+
+  Serial.printf("[SYS] 重置原因: %s, 連續異常開機: %u\n",
+                resetReasonName(rr), (unsigned)gAbnormalBoots);
+
+  if (gAbnormalBoots >= 3) {
+    nvs_handle_t h;
+    if (nvs_open("phy", NVS_READWRITE, &h) == ESP_OK) {
+      nvs_erase_all(h);
+      nvs_commit(h);
+      nvs_close(h);
+      Serial.println("[SYS] 已清除 NVS 的 PHY 校正資料, 本次開機重新校正");
+    }
+    gAbnormalBoots = 0;
+  }
+}
 
 /* =============================================================
  * 開機流程: 無人機 ID 選擇 + 搖桿校正
@@ -102,6 +160,8 @@ void setup() {
   Serial.printf("  %s %s\n", FW_NAME, FW_VERSION);
   Serial.println("==========================================================");
 
+  bootHealthCheck();
+
   inputBegin();
 
   if (!SPIFFS.begin(true)) Serial.println("[SPIFFS] 掛載失敗");
@@ -121,6 +181,9 @@ void setup() {
   }
 
   /* ---------- WiFi: STA + AP 共存 (僅 2.4GHz) ---------- */
+  /* 設定都存在 SPIFFS, 關閉 WiFi 自身寫 NVS: 迴圈每 10 秒重連一次,
+   * 若每次都寫 NVS 會加速磨損, 也會和 PHY 校正資料搶 NVS 空間。 */
+  WiFi.persistent(false);
   WiFi.mode(WIFI_AP_STA);
   WiFi.setHostname(MDNS_HOST);
   {
@@ -132,14 +195,16 @@ void setup() {
     WiFi.softAP(ap.c_str(), AP_PASS);
     Serial.printf("[AP] %s -> %s\n", ap.c_str(), WiFi.softAPIP().toString().c_str());
   }
+  /* AP 與 STA 分開啟動, 避免兩次射頻啟動的電流峰值疊在一起 */
+  delay(100);
   if (gSet.ssid.length()) {
     WiFi.begin(gSet.ssid.c_str(), gSet.wpass.c_str());
     Serial.printf("[WiFi] connecting to %s ...\n", gSet.ssid.c_str());
   }
 
   /* ---------- mDNS (輕量: 只回應 A 記錄) ---------- */
-  mdnsBegin();
-  Serial.printf("[mDNS] http://%s.local/\n", MDNS_HOST);
+  if (mdnsBegin()) Serial.printf("[mDNS] http://%s.local/\n", MDNS_HOST);
+  else             Serial.println("[mDNS] 啟動失敗 (UDP 5353)");
 
   webSetup();
   if (gSet.rxHost.length()) linkBegin();

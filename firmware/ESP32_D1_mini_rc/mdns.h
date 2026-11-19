@@ -20,8 +20,8 @@ static WiFiUDP   gMdnsUdp;
 static const IPAddress MDNS_V4(224, 0, 0, 251);
 static const uint16_t  MDNS_PORT_ID = 5353;
 
-static inline void mdnsBegin() {
-  gMdnsUdp.beginMulticast(MDNS_V4, MDNS_PORT_ID);
+static inline bool mdnsBegin() {
+  return gMdnsUdp.beginMulticast(MDNS_V4, MDNS_PORT_ID) != 0;
 }
 
 /* 比對 DNS QNAME 是否等於 <MDNS_HOST>.local (不分大小寫) */

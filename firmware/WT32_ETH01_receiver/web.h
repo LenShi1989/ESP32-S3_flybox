@@ -7,8 +7,6 @@
 #include <SPIFFS.h>
 #include <Update.h>
 #include <ESPAsyncWebServer.h>
-#define ELEGANTOTA_USE_ASYNC_WEBSERVER 1
-#include <ElegantOTA.h>
 #include "config.h"
 #include "settings.h"
 #include "kkbox.h"
@@ -22,11 +20,6 @@ struct Session { String token; uint32_t born; };
 static Session gSessions[SESSION_MAX];
 
 static uint32_t gRebootAt = 0;   /* >0 表示排程重開機 */
-
-/* SPIFFS 映像 OTA (spiffs.bin) 狀態 */
-static bool   gFsOtaAuth  = false;
-static bool   gFsOtaOk    = false;
-static size_t gFsOtaBytes = 0;
 
 static String cookieGet(AsyncWebServerRequest* r, const char* name) {
   if (!r->hasHeader("Cookie")) return "";
@@ -167,6 +160,56 @@ static void onWsEvent(AsyncWebSocket* s, AsyncWebSocketClient* c,
       if (msg.startsWith("{")) kkSendLog(msg);   /* 控制命令直通飛控板 */
     }
   }
+}
+
+/* ================= OTA 上傳 (firmware.bin / spiffs.bin) =================
+ * 兩者都以 multipart/form-data (欄位 file) 上傳, 需登入 (X-Auth 或 cookie)。
+ *   firmware -> 寫入備用 OTA 分割區, Update.end() 後設定開機分割區
+ *   spiffs   -> 先卸載 SPIFFS 再整塊覆寫網頁檔分割區
+ * 完成後排程重開機; 上傳中斷會留下不完整映像 (spiffs 需 USB 重傳)。
+ */
+static int    gOtaKind  = 0;      /* 0=無 1=firmware 2=spiffs */
+static bool   gOtaAuth  = false;
+static bool   gOtaOk    = false;
+static bool   gOtaFail  = false;
+static size_t gOtaBytes = 0;
+
+static void otaChunk(AsyncWebServerRequest* r, int kind, String filename,
+                     size_t index, uint8_t* data, size_t len, bool final) {
+  if (!index) {
+    gOtaKind = kind; gOtaOk = false; gOtaFail = false; gOtaBytes = 0;
+    gOtaAuth = isAuthed(r);
+    if (!gOtaAuth) return;
+    Serial.printf("[OTA] %s upload start: %s\n",
+                  kind == 1 ? "firmware" : "spiffs", filename.c_str());
+    if (kind == 2) SPIFFS.end();                 /* 寫入前必須卸載 */
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN, kind == 1 ? U_FLASH : U_SPIFFS)) {
+      gOtaFail = true; Update.printError(Serial); return;
+    }
+  }
+  if (!gOtaAuth || gOtaFail || gOtaKind != kind || !Update.isRunning()) return;
+  if (Update.write(data, len) != len) {
+    gOtaFail = true; Update.printError(Serial); return;
+  }
+  gOtaBytes += len;
+  if (final) {
+    if (!gOtaFail && Update.end(true)) {
+      gOtaOk = true;
+      Serial.printf("[OTA] %s ok: %u bytes\n",
+                    kind == 1 ? "firmware" : "spiffs", (unsigned)gOtaBytes);
+    } else {
+      Update.printError(Serial);
+      if (kind == 2) SPIFFS.begin(true);          /* 失敗時先救回網頁檔 */
+    }
+  }
+}
+
+static void otaDone(AsyncWebServerRequest* r, int kind) {
+  if (!gOtaAuth) { sendErr(r, "unauthorized", 401); return; }
+  if (!gOtaOk || gOtaKind != kind) { sendErr(r, "ota failed", 500); return; }
+  sendJson(r, String("{\"ok\":true,\"bytes\":") + (unsigned)gOtaBytes +
+              ",\"md5\":\"" + Update.md5String() + "\"}");
+  gRebootAt = millis() + 1500;   /* 等回應送完再重開 */
 }
 
 /* ================= 設定精靈 / 路由 ================= */
@@ -317,46 +360,17 @@ static void webSetup() {
     }
   });
 
-  /* ---- OTA: SPIFFS 網頁檔映像 (spiffs.bin) ----
-   * 以 multipart/form-data (欄位 file) 上傳; 寫入前先卸載 SPIFFS,
-   * 完成後自動重開機。上傳中斷會使網頁檔損毀 (需 USB 重傳)。
-   */
-  server.on("/api/ota/spiffs", HTTP_POST,
-    [](AsyncWebServerRequest* r) {
-      if (!gFsOtaAuth) { sendErr(r, "unauthorized", 401); return; }
-      if (!gFsOtaOk)   { sendErr(r, "spiffs ota failed", 500); return; }
-      sendJson(r, "{\"ok\":true,\"bytes\":" + String((unsigned)gFsOtaBytes) + "}");
-      gRebootAt = millis() + 1500;   /* 等回應送完再重開 */
-    },
-    [](AsyncWebServerRequest* r, String filename, size_t index, uint8_t* data,
-       size_t len, bool final) {
-      if (!index) {
-        gFsOtaAuth  = isAuthed(r);
-        gFsOtaOk    = false;
-        gFsOtaBytes = 0;
-        if (!gFsOtaAuth) return;
-        Serial.printf("[OTA] spiffs upload start: %s\n", filename.c_str());
-        SPIFFS.end();                       /* 寫入前必須卸載 */
-        if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_SPIFFS)) {
-          Update.printError(Serial);
-          return;
-        }
-      }
-      if (!gFsOtaAuth || !Update.isRunning()) return;
-      if (Update.write(data, len) != len) { Update.printError(Serial); return; }
-      gFsOtaBytes += len;
-      if (final) {
-        if (Update.end(true)) {
-          gFsOtaOk = true;
-          Serial.printf("[OTA] spiffs ok: %u bytes\n", (unsigned)gFsOtaBytes);
-        } else {
-          Update.printError(Serial);
-        }
-      }
-    });
+  /* ---- OTA: 韌體 (firmware.bin) ---- */
+  server.on("/api/ota/firmware", HTTP_POST,
+    [](AsyncWebServerRequest* r) { otaDone(r, 1); },
+    [](AsyncWebServerRequest* r, String name, size_t index, uint8_t* data,
+       size_t len, bool final) { otaChunk(r, 1, name, index, data, len, final); });
 
-  /* ---- OTA (ElegantOTA, 無帳密驗證) ---- */
-  ElegantOTA.begin(&server);
+  /* ---- OTA: SPIFFS 網頁檔映像 (spiffs.bin) ---- */
+  server.on("/api/ota/spiffs", HTTP_POST,
+    [](AsyncWebServerRequest* r) { otaDone(r, 2); },
+    [](AsyncWebServerRequest* r, String name, size_t index, uint8_t* data,
+       size_t len, bool final) { otaChunk(r, 2, name, index, data, len, final); });
 
   /* ---- 靜態檔案 (SPIFFS) ---- */
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html").setCacheControl("no-store");

@@ -1,11 +1,23 @@
 @echo off
 rem ---------------------------------------------------------------
-rem  spiffs.bat - build spiffs.bin (SPIFFS image) for the receiver
-rem  Double-click to build firmware\WT32_ETH01_receiver\spiffs.bin,
-rem  or pass extra arguments, e.g.:
-rem      spiffs.bat -Data firmware\ESP32_D1_mini_rc\data
-rem      spiffs.bat -Size 0x100000 -Out C:\tmp\spiffs.bin
+rem  spiffs.bat - build spiffs.bin (SPIFFS image) for the Flybox boards
+rem
+rem  Default (receiver):
+rem      tools\spiffs.bat
+rem      -> firmware\WT32_ETH01_receiver\build\spiffs.bin
+rem
+rem  Receiver + remote controller:
+rem      tools\spiffs.bat -All
+rem      -> firmware\WT32_ETH01_receiver\build\spiffs.bin
+rem      -> firmware\ESP32_D1_mini_rc\build\spiffs.bin
+rem
+rem  Other options:
+rem      tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data
+rem      tools\spiffs.bat -Size 0x100000 -Out C:\tmp\spiffs.bin
+rem      tools\spiffs.bat -Mkspiffs "C:\path\to\mkspiffs.exe"
+rem
 rem  Needs the ESP32 Arduino core (bundles mkspiffs.exe).
+rem  Partition size is auto-detected (partitions.csv / core default.csv).
 rem ---------------------------------------------------------------
 setlocal
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0make_spiffs.ps1" %*

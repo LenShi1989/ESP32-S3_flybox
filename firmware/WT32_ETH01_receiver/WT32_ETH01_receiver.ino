@@ -1,7 +1,7 @@
 /*
  * WT32-ETH01 接收機 (Receiver) — KKBOX 飛控系統
  * ---------------------------------------------------------------
- * 版本 (Version): 2.2.0   (見 config.h 的 FW_VERSION)
+ * 版本 (Version): 2.3.0   (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    WT32-ETH01 Receiver
  * ---------------------------------------------------------------
  * - 內建 LAN8720A RJ45 有線網路 + WiFi 無線網路 (可同時)
@@ -10,7 +10,7 @@
  * - 與 KKBOX 飛控板以 Serial2 (GPIO5/GPIO17, 115200) 交換 JSON
  * - 網頁: 系統狀態 / 網路設定 / 馬達模式 / 使用者設定 / OTA
  * - mDNS: http://flybox-receiver.local/ (區網內免記 IP)
- * - ESPAsyncWebServer + AsyncWebSocket + ElegantOTA
+ * - ESPAsyncWebServer + AsyncWebSocket + 內建 OTA (firmware / spiffs)
  * ---------------------------------------------------------------
  * 網頁需先登入 (預設 admin / kkbox)。
  *
@@ -115,7 +115,6 @@ void loop() {
   }
 
   ws.cleanupClients();
-  ElegantOTA.loop();
 
   if (gRebootAt && millis() > gRebootAt) {
     Serial.println("[SYS] 重新啟動以套用設定...");

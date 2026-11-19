@@ -209,8 +209,8 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 ### 建置 / 上傳
 
 1. 開發板選 **WT32-ETH01**（ESP32 core 的 `wt32-eth01`）
-2. 函式庫：**ESP Async WebServer**（ESP32Async）、**Async TCP**、**ElegantOTA**；
-   `build_opt.h` 已定義 `ELEGANTOTA_USE_ASYNC_WEBSERVER=1`
+2. 函式庫：**ESP Async WebServer**（ESP32Async）、**Async TCP**；
+   OTA 由韌體自行實作（`/api/ota/firmware`、`/api/ota/spiffs`），不需 ElegantOTA
 3. 先上傳程式，再把 `data/` 以 SPIFFS 映像方式上傳（Arduino IDE 需安裝
    ESP32 Sketch Data Upload 外掛，或使用 `mklittlefs` / `arduino-cli uploadfs`）
 4. 序列埠 115200 可看開機與網路訊息
@@ -223,31 +223,38 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 - WebSocket：`/ws`（需 `?token=` 或登入 cookie）
 - 遙控器用的裝置 token 在「使用者設定」頁可重新產生
 - 常用 API：`/api/status`、`/api/telemetry`、`/api/id`、`/api/command`（POST 單行 JSON 轉送飛控）、
-  `/api/ota/spiffs`（POST `spiffs.bin` 網頁檔映像，需登入）
+  `/api/ota/firmware`、`/api/ota/spiffs`（POST `firmware.bin` / `spiffs.bin`，需登入）
 
-### 網頁檔 (SPIFFS) OTA 更新
+### OTA 更新（韌體 / 網頁檔）
 
-`data/` 除了用 USB 上傳 SPIFFS 映像，也可以先在本機打包再由網頁上傳：
+兩塊板子都用**內建 OTA 頁面**（`/api/ota/firmware`、`/api/ota/spiffs`，需登入），
+不需要 ElegantOTA：
 
-1. 產生映像（各板子輸出到自己的 `build/`，預設分割區 1.5MB，`0x160000`）：
+- **firmware.bin**：Arduino IDE／arduino-cli 編譯出的 `.bin`，寫入備用 OTA 分割區，
+  完成後自動重開機；上傳失敗仍會從舊分割區開機。
+- **spiffs.bin**：`data/` 打包的網頁檔映像，直接覆寫 SPIFFS 分割區；
+  遙控器會先備份 `/config.json`，寫入後自動還原（設定不會流失）。
 
-   | 目標 | 指令 | 輸出 |
-   | ---- | ---- | ---- |
-   | 接收機 | `tools\spiffs.bat` | `firmware\WT32_ETH01_receiver\build\spiffs.bin` |
-   | 遙控器 | `tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data` | `firmware\ESP32_D1_mini_rc\build\spiffs.bin` |
+產生網頁檔映像（各板子輸出到自己的 `build/`）：
 
-2. 接收機網頁 →「OTA 更新」→「網頁檔映像 (spiffs.bin)」→ 選擇
-   `firmware\WT32_ETH01_receiver\build\spiffs.bin` 上傳
-3. 上傳完成後裝置自動重開機，網頁即為新版本
+| 目標 | 指令 | 輸出 |
+| ---- | ---- | ---- |
+| 兩塊板子 | `tools\spiffs.bat -All` | 下列兩個檔案 |
+| 接收機 | `tools\spiffs.bat` | `firmware\WT32_ETH01_receiver\build\spiffs.bin` |
+| 遙控器 | `tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data` | `firmware\ESP32_D1_mini_rc\build\spiffs.bin` |
 
-- 腳本會自動尋找 Arduino ESP32 core 內附的 `mkspiffs.exe`；找不到時可用
+上傳方式：板子網頁 →「OTA 更新」→ 選檔 → 上傳（顯示百分比進度），完成後自動重開機。
+
+腳本特性：
+
+- `-Size auto`（預設）會讀 `<sketch>\partitions.csv`，否則讀 ESP32 core 的
+  `default.csv` 取得 SPIFFS 分割區大小；都找不到時用 `0x160000`（1.5MB）
+- 自動尋找 Arduino ESP32 core 內附的 `mkspiffs.exe`；找不到時可用
   `-Mkspiffs <路徑>`，或設定環境變數 `MKSPIFFS`
-- 其他資料夾 / 分割區大小 / 輸出位置（相對路徑以專案根目錄為基準）：
-  `tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data -Size 0x160000`
-  `tools\spiffs.bat -Out firmware\ESP32_D1_mini_rc\build\my-spiffs.bin`
+- 產生後印出檔案大小、資料使用率與 SHA256，方便核對上傳的映像
 - `spiffs.bin`、`build/`、`*.ino.*.bin` 已列入 `.gitignore`
 - 映像會整塊覆蓋 SPIFFS：上傳中斷會使網頁檔損毀（開機自動格式化 → 網頁空白），
-  此時請改用 USB 重新上傳
+  此時請改用 USB 重新上傳；`firmware.bin` 中斷則不影響現有版本
 
 ## 遙控器（ESP32 D1 mini RC）
 
@@ -283,14 +290,16 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 1. 開發板選 **WEMOS D1 MINI ESP32**（`d1_mini32`）
 2. 函式庫：**Adafruit GFX**、**Adafruit SSD1306**、**ArduinoJson**、
-   **ESP Async WebServer**、**Async TCP**、**ElegantOTA**、**WebSockets**（Links2004）
-3. 上傳程式後，把 `data/` 以 SPIFFS 映像上傳（`config.json` 為預設設定）
+   **ESP Async WebServer**、**Async TCP**、**WebSockets**（Links2004）（OTA 內建，不需 ElegantOTA）
+3. 上傳程式後，把 `data/` 以 SPIFFS 映像上傳（`config.json` 為預設設定）；
+   或先執行 `tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data`，
+   再由網頁「OTA 更新」上傳 `firmware\ESP32_D1_mini_rc\build\spiffs.bin`
 4. 網頁：`http://192.168.10.1/` 或 `http://flybox-rc.local/`（SoftAP `Flybox-RC-XXXX`，
    密碼 `12345678`），帳密 `admin` / `admin`
 5. 先在網頁「網路設定」填入接收機 IP / token，之後才會建立 WebSocket 連線
 
-> Flash 使用率約 99.9%（1.31MB / 1.31MB）；mDNS 以輕量實作（僅回應 A 記錄）節省空間，
-> 再加功能需先換分割區配置。
+> Flash 使用率約 98%（1.29MB / 1.31MB）；移除 ElegantOTA、mDNS 改輕量實作（僅回應 A 記錄）
+> 後騰出空間，再加功能前建議先換分割區配置。
 
 ## 控制參數
 

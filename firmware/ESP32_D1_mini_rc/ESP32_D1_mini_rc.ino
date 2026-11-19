@@ -1,7 +1,7 @@
 /*
  * ESP32 D1 mini 遙控器 (RC) — KKBOX 飛控系統
  * ---------------------------------------------------------------
- * 版本 (Version): 2.2.0   (見 config.h 的 FW_VERSION)
+ * 版本 (Version): 2.3.0   (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    ESP32 D1 mini RC
  * ---------------------------------------------------------------
  * - 只用 2.4G WiFi: WebSocket 用戶端連線 WT32-ETH01 接收機
@@ -169,7 +169,6 @@ void loop() {
   linkLoop();
   mdnsLoop();
   localWs.cleanupClients();
-  ElegantOTA.loop();
 
   /* ---------- 20Hz: 讀硬體搖桿並送出命令 ---------- */
   if (millis() - lastInput >= LINK_SEND_MS) {

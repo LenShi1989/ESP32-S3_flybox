@@ -266,3 +266,7 @@ input[type=range]{width:100%;margin-top:10px;accent-color:var(--accent)}
   .wifi-item{padding:9px 10px;gap:8px}
   .card-actions button{flex:1 1 100%;margin-top:0}
 }
+
+/* OTA / 上傳進度條 */
+.progress{height:8px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;margin:10px 0 6px}
+.progress > span{display:block;height:100%;width:0;background:#37c2ff;transition:width .15s linear}

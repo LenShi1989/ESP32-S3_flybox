@@ -1,90 +1,177 @@
 <#
-  make_spiffs.ps1 - Build a SPIFFS image (spiffs.bin) from a sketch data folder.
+  make_spiffs.ps1 - Build SPIFFS images (spiffs.bin) for the Flybox sketches.
 
-  Default target (image is written to <sketch>\build\spiffs.bin):
-      firmware\WT32_ETH01_receiver\data  ->  firmware\WT32_ETH01_receiver\build\spiffs.bin
-      firmware\ESP32_D1_mini_rc\data     ->  firmware\ESP32_D1_mini_rc\build\spiffs.bin
+  Default output (each sketch gets its own build folder):
+      firmware\WT32_ETH01_receiver\build\spiffs.bin
+      firmware\ESP32_D1_mini_rc\build\spiffs.bin        (-All)
 
-  Relative -Data / -Out paths are resolved against the repository root.
-
-  Default partition (ESP32 core "default" 4MB layout used by WT32-ETH01):
-      spiffs  offset 0x290000  size 0x160000 (1.5 MB)
+  Partition size:
+      -Size auto (default)  read the "spiffs" row from <sketch>\partitions.csv,
+                            then from the ESP32 core default.csv; fallback 0x160000.
+      Also accepts 0x160000, 1441792, 1536k, 1M.
 
   Usage:
-      tools\spiffs.bat
+      tools\spiffs.bat                       # receiver only
+      tools\spiffs.bat -All                  # receiver + RC
       tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data
       tools\spiffs.bat -Size 0x100000 -Out C:\tmp\spiffs.bin
-      tools\spiffs.bat -Out firmware\ESP32_D1_mini_rc\build\my-spiffs.bin
       tools\spiffs.bat -Mkspiffs "C:\path\to\mkspiffs.exe"
 #>
 [CmdletBinding()]
 param(
   [string]$Data,
   [string]$Out,
-  [string]$Size = '0x160000',
-  [string]$Mkspiffs
+  [string]$Size = 'auto',
+  [string]$Mkspiffs,
+  [switch]$All
 )
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
+$watch = [System.Diagnostics.Stopwatch]::StartNew()
 
 function Fail([string]$msg) {
   Write-Host "[ERROR] $msg" -ForegroundColor Red
   exit 1
 }
 
-if (-not $Data) { $Data = Join-Path $repo 'firmware\WT32_ETH01_receiver\data' }
-elseif (-not [System.IO.Path]::IsPathRooted($Data)) { $Data = Join-Path $repo $Data }
-if (-not (Test-Path $Data)) { Fail "data folder not found: $Data" }
-$Data = (Resolve-Path $Data).Path
-if (-not $Out) { $Out = Join-Path (Split-Path -Parent $Data) 'build\spiffs.bin' }
-elseif (-not [System.IO.Path]::IsPathRooted($Out)) { $Out = Join-Path $repo $Out }
-$Out = [System.IO.Path]::GetFullPath($Out)
-$outDir = Split-Path -Parent $Out
-if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Force -Path $outDir | Out-Null }
-
-# ---------- locate mkspiffs.exe ----------
-$cands = @()
-if ($Mkspiffs)    { $cands += $Mkspiffs }
-if ($env:MKSPIFFS) { $cands += $env:MKSPIFFS }
-foreach ($base in @("$env:LOCALAPPDATA\Arduino15\packages\esp32\tools\mkspiffs",
-                    "$env:USERPROFILE\AppData\Local\Arduino15\packages\esp32\tools\mkspiffs")) {
-  if (Test-Path $base) {
-    $cands += @(Get-ChildItem $base -Recurse -Filter mkspiffs.exe -ErrorAction SilentlyContinue |
-                Sort-Object FullName -Descending | ForEach-Object { $_.FullName })
-  }
+function Resolve-RepoPath([string]$p) {
+  if ([System.IO.Path]::IsPathRooted($p)) { return $p }
+  return (Join-Path $repo $p)
 }
-$exe = $null
-foreach ($c in $cands) { if ($c -and (Test-Path $c)) { $exe = (Resolve-Path $c).Path; break } }
+
+function Find-Mkspiffs {
+  $cands = @()
+  if ($Mkspiffs)     { $cands += $Mkspiffs }
+  if ($env:MKSPIFFS) { $cands += $env:MKSPIFFS }
+  foreach ($base in @("$env:LOCALAPPDATA\Arduino15\packages\esp32\tools\mkspiffs",
+                      "$env:USERPROFILE\AppData\Local\Arduino15\packages\esp32\tools\mkspiffs")) {
+    if (Test-Path $base) {
+      $cands += @(Get-ChildItem $base -Recurse -Filter mkspiffs.exe -ErrorAction SilentlyContinue |
+                  Sort-Object FullName -Descending | ForEach-Object { $_.FullName })
+    }
+  }
+  foreach ($c in $cands) { if ($c -and (Test-Path $c)) { return (Resolve-Path $c).Path } }
+  return $null
+}
+
+function Get-CsvSpiffsSize([string]$csv) {
+  if (-not (Test-Path $csv)) { return $null }
+  foreach ($raw in Get-Content $csv) {
+    $line = $raw.Trim()
+    if (-not $line -or $line.StartsWith('#')) { continue }
+    $f = @($line.Split(',') | ForEach-Object { $_.Trim() })
+    if ($f.Count -ge 5 -and ($f[0] -eq 'spiffs' -or $f[0] -eq 'littlefs')) { return $f[4] }
+  }
+  return $null
+}
+
+function Get-CorePartitionSize {
+  $root = "$env:LOCALAPPDATA\Arduino15\packages\esp32\hardware\esp32"
+  if (-not (Test-Path $root)) { return $null }
+  $dirs = @(Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending)
+  foreach ($d in $dirs) {
+    $s = Get-CsvSpiffsSize (Join-Path $d.FullName 'tools\partitions\default.csv')
+    if ($s) { return $s }
+  }
+  return $null
+}
+
+function Get-Sha256([string]$path) {
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  $fs = [System.IO.File]::OpenRead($path)
+  try { return ([BitConverter]::ToString($sha.ComputeHash($fs))).Replace('-', '') }
+  finally { $fs.Close(); $sha.Dispose() }
+}
+
+function Convert-Size([string]$s) {
+  if ($s -match '^0x([0-9a-fA-F]+)$') { return [int64]([Convert]::ToInt64($Matches[1], 16)) }
+  if ($s -match '^([0-9]+)([kKmM])$') {
+    $n = [int64]$Matches[1]
+    if ($Matches[2].ToLower() -eq 'k') { return $n * 1024 }
+    return $n * 1048576
+  }
+  return [int64]$s
+}
+
+$exe = Find-Mkspiffs
 if (-not $exe) {
   Fail "mkspiffs.exe not found. Install the ESP32 core in Arduino IDE, or pass -Mkspiffs <path> / set MKSPIFFS."
 }
+if ($All -and ($Data -or $Out)) { Fail "-All cannot be combined with -Data or -Out" }
 
-# ---------- resolve partition size ----------
-if ($Size -match '^0x([0-9a-fA-F]+)$') { $sizeNum = [Convert]::ToInt64($Matches[1], 16) }
-else { $sizeNum = [int64]$Size }
-if ($sizeNum -le 0) { Fail "invalid -Size: $Size" }
-
-# ---------- check data size ----------
-$files = @(Get-ChildItem $Data -Recurse -File)
-$dataBytes = ($files | Measure-Object -Property Length -Sum).Sum
-if (-not $dataBytes) { $dataBytes = 0 }
-if ($dataBytes -gt $sizeNum) {
-  Fail ("data is {0} bytes but the partition is only {1} bytes" -f $dataBytes, $sizeNum)
+$jobs = @()
+if ($All) {
+  $jobs += [pscustomobject]@{ Name = 'WT32_ETH01_receiver'; Data = (Join-Path $repo 'firmware\WT32_ETH01_receiver\data') }
+  $jobs += [pscustomobject]@{ Name = 'ESP32_D1_mini_rc';    Data = (Join-Path $repo 'firmware\ESP32_D1_mini_rc\data') }
+} else {
+  if (-not $Data) { $Data = 'firmware\WT32_ETH01_receiver\data' }
+  $Data = Resolve-RepoPath $Data
+  $jobs += [pscustomobject]@{ Name = (Split-Path -Leaf (Split-Path -Parent $Data)); Data = $Data }
 }
 
 Write-Host "mkspiffs : $exe"
-Write-Host "data dir : $Data ($($files.Count) files, $dataBytes bytes)"
-Write-Host "output   : $Out"
-Write-Host ("size     : 0x{0:X} ({1} bytes)" -f $sizeNum, $sizeNum)
 
-if (Test-Path $Out) { Remove-Item $Out -Force }
+$results = @()
+foreach ($job in $jobs) {
+  if (-not (Test-Path $job.Data)) { Fail "data folder not found: $($job.Data)" }
+  $dataDir = (Resolve-Path $job.Data).Path
+  $sketch  = Split-Path -Parent $dataDir
 
-& $exe -c $Data -b 4096 -p 256 -s $sizeNum $Out
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path $Out)) { Fail "mkspiffs failed (exit $LASTEXITCODE)" }
+  $sizeText = $Size
+  if ($sizeText -eq 'auto') {
+    $sizeText = Get-CsvSpiffsSize (Join-Path $sketch 'partitions.csv')
+    if (-not $sizeText) { $sizeText = Get-CorePartitionSize }
+    if (-not $sizeText) { $sizeText = '0x160000' }
+  }
+  $sizeNum = Convert-Size $sizeText
+  if ($sizeNum -le 0) { Fail "invalid -Size: $Size" }
 
-$imgBytes = (Get-Item $Out).Length
-Write-Host ("[OK] {0} ({1} bytes, data usage {2}%)" -f $Out, $imgBytes, [math]::Round($dataBytes * 100 / $sizeNum, 1)) -ForegroundColor Green
+  if ($Out -and -not $All) {
+    $outPath = [System.IO.Path]::GetFullPath((Resolve-RepoPath $Out))
+  } else {
+    $outPath = Join-Path $sketch 'build\spiffs.bin'
+  }
+
+  $files = @(Get-ChildItem $dataDir -Recurse -File)
+  $dataBytes = [int64]0
+  if ($files.Count) {
+    $dataBytes = [int64](($files | Measure-Object -Property Length -Sum).Sum)
+  }
+  if ($dataBytes -gt $sizeNum) {
+    Fail ("{0}: data is {1} bytes but the partition is only {2} bytes" -f $job.Name, $dataBytes, $sizeNum)
+  }
+
+  $outDir = Split-Path -Parent $outPath
+  if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Force -Path $outDir | Out-Null }
+  if (Test-Path $outPath) { Remove-Item $outPath -Force }
+
+  Write-Host ("[{0}] {1} files, {2} bytes, partition 0x{3:X} ({3} bytes)" -f `
+              $job.Name, $files.Count, $dataBytes, $sizeNum)
+
+  & $exe -c $dataDir -b 4096 -p 256 -s $sizeNum $outPath | Out-Null
+  if ($LASTEXITCODE -ne 0 -or -not (Test-Path $outPath)) {
+    Fail ("{0}: mkspiffs failed (exit {1})" -f $job.Name, $LASTEXITCODE)
+  }
+
+  $img = Get-Item $outPath
+  $results += [pscustomobject]@{
+    Sketch = $job.Name
+    Output = $outPath
+    Bytes  = $img.Length
+    Usage  = ('{0:N1}%' -f ($dataBytes * 100 / $sizeNum))
+    Sha256 = (Get-Sha256 $outPath)
+  }
+}
+
 Write-Host ""
-Write-Host "OTA upload : receiver web page -> OTA -> 'spiffs.bin' -> upload (auto reboot)"
+foreach ($r in $results) {
+  Write-Host ("[OK] {0}" -f $r.Output) -ForegroundColor Green
+  Write-Host ("     {0:N0} bytes, data usage {1}" -f $r.Bytes, $r.Usage)
+  Write-Host ("     SHA256 {0}" -f $r.Sha256)
+}
+Write-Host ("     elapsed {0:N1}s" -f $watch.Elapsed.TotalSeconds)
+Write-Host ""
+Write-Host "OTA upload : board web page -> OTA -> choose firmware.bin / spiffs.bin (auto reboot)"
 Write-Host "USB flash  : esptool --chip esp32 --port COMx write_flash 0x290000 <spiffs.bin>"

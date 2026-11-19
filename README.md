@@ -229,16 +229,22 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 `data/` 除了用 USB 上傳 SPIFFS 映像，也可以先在本機打包再由網頁上傳：
 
-1. 執行 `tools\spiffs.bat`（雙擊或命令列）→ 產生 `build/spiffs.bin`
-   （專案根目錄下的 `build/`，預設分割區 1.5MB，`0x160000`）
-2. 接收機網頁 →「OTA 更新」→「網頁檔映像 (spiffs.bin)」→ 選擇檔案上傳
+1. 產生映像（各板子輸出到自己的 `build/`，預設分割區 1.5MB，`0x160000`）：
+
+   | 目標 | 指令 | 輸出 |
+   | ---- | ---- | ---- |
+   | 接收機 | `tools\spiffs.bat` | `firmware\WT32_ETH01_receiver\build\spiffs.bin` |
+   | 遙控器 | `tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data` | `firmware\ESP32_D1_mini_rc\build\spiffs.bin` |
+
+2. 接收機網頁 →「OTA 更新」→「網頁檔映像 (spiffs.bin)」→ 選擇
+   `firmware\WT32_ETH01_receiver\build\spiffs.bin` 上傳
 3. 上傳完成後裝置自動重開機，網頁即為新版本
 
 - 腳本會自動尋找 Arduino ESP32 core 內附的 `mkspiffs.exe`；找不到時可用
   `-Mkspiffs <路徑>`，或設定環境變數 `MKSPIFFS`
 - 其他資料夾 / 分割區大小 / 輸出位置（相對路徑以專案根目錄為基準）：
   `tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data -Size 0x160000`
-  `tools\spiffs.bat -Out build\rc-spiffs.bin`
+  `tools\spiffs.bat -Out firmware\ESP32_D1_mini_rc\build\my-spiffs.bin`
 - `spiffs.bin`、`build/`、`*.ino.*.bin` 已列入 `.gitignore`
 - 映像會整塊覆蓋 SPIFFS：上傳中斷會使網頁檔損毀（開機自動格式化 → 網頁空白），
   此時請改用 USB 重新上傳

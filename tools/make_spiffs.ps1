@@ -1,8 +1,9 @@
 <#
   make_spiffs.ps1 - Build a SPIFFS image (spiffs.bin) from a sketch data folder.
 
-  Default target:
-      firmware\WT32_ETH01_receiver\data  ->  build\spiffs.bin
+  Default target (image is written to <sketch>\build\spiffs.bin):
+      firmware\WT32_ETH01_receiver\data  ->  firmware\WT32_ETH01_receiver\build\spiffs.bin
+      firmware\ESP32_D1_mini_rc\data     ->  firmware\ESP32_D1_mini_rc\build\spiffs.bin
 
   Relative -Data / -Out paths are resolved against the repository root.
 
@@ -13,7 +14,7 @@
       tools\spiffs.bat
       tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data
       tools\spiffs.bat -Size 0x100000 -Out C:\tmp\spiffs.bin
-      tools\spiffs.bat -Out build\rc-spiffs.bin
+      tools\spiffs.bat -Out firmware\ESP32_D1_mini_rc\build\my-spiffs.bin
       tools\spiffs.bat -Mkspiffs "C:\path\to\mkspiffs.exe"
 #>
 [CmdletBinding()]
@@ -36,7 +37,7 @@ if (-not $Data) { $Data = Join-Path $repo 'firmware\WT32_ETH01_receiver\data' }
 elseif (-not [System.IO.Path]::IsPathRooted($Data)) { $Data = Join-Path $repo $Data }
 if (-not (Test-Path $Data)) { Fail "data folder not found: $Data" }
 $Data = (Resolve-Path $Data).Path
-if (-not $Out) { $Out = Join-Path $repo 'build\spiffs.bin' }
+if (-not $Out) { $Out = Join-Path (Split-Path -Parent $Data) 'build\spiffs.bin' }
 elseif (-not [System.IO.Path]::IsPathRooted($Out)) { $Out = Join-Path $repo $Out }
 $Out = [System.IO.Path]::GetFullPath($Out)
 $outDir = Split-Path -Parent $Out
@@ -86,4 +87,4 @@ $imgBytes = (Get-Item $Out).Length
 Write-Host ("[OK] {0} ({1} bytes, data usage {2}%)" -f $Out, $imgBytes, [math]::Round($dataBytes * 100 / $sizeNum, 1)) -ForegroundColor Green
 Write-Host ""
 Write-Host "OTA upload : receiver web page -> OTA -> 'spiffs.bin' -> upload (auto reboot)"
-Write-Host "USB flash  : esptool --chip esp32 --port COMx write_flash 0x290000 build\spiffs.bin"
+Write-Host "USB flash  : esptool --chip esp32 --port COMx write_flash 0x290000 <spiffs.bin>"

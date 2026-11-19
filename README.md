@@ -24,39 +24,58 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 ## 目錄
 
 ```
-├── docs/                           # 模組規格書、系統方塊圖、調機測試清單
+├── docs/                              # 規格書、接腳圖、方塊圖、調機測試清單
+│   ├── 調機測試清單.md
+│   ├── 飛控系統方塊圖.pptx
+│   ├── ESP32-D1-MINI/                 # D1 mini 接腳圖 / 規格書
+│   ├── ESP32-S3飛控/                  # AtomS3R-Ext 規格書 / 原理圖
+│   ├── GPS模組/                       # YIC-GT-504GGB 規格書
+│   ├── WT32-ETH01/                    # 接腳圖 / V1.4 規格書
+│   └── 雷射測距感測器模組/            # LRFX0M20KHS datasheet
 ├── firmware/
-│   ├── ESP32_S3_flybox/
-│   │   ├── ESP32_S3_flybox.ino     # 主程式：控制迴路、命令解析、遙測
-│   │   ├── config.h                # 腳位、PID、ESC、濾波等所有設定
-│   │   ├── imu.h                   # BMI270/BMM150 讀取、零點校正、濾波、姿態融合
-│   │   ├── pid.h                   # PID (微分作用於量測值、積分限幅)
-│   │   ├── mixer.h                 # Quad-X / X8 同軸混控
-│   │   ├── motors.h                # 8 通道 LEDC ESC 輸出
-│   │   ├── link.h                  # UART1 單行 JSON 收發
-│   │   └── jsonutil.h              # 輕量 JSON 解析
-│   ├── WT32_ETH01_receiver/
-│   │   ├── WT32_ETH01_receiver.ino # 接收機主程式 (RJ45 + WiFi + WebSocket 橋接)
-│   │   ├── config.h                # 網路 / UART / 帳密設定
-│   │   ├── kkbox.h                 # 飛控 UART 橋接 (Serial2, 115200)
-│   │   ├── settings.h              # NVS 設定、無人機 ID
-│   │   ├── web.h                   # 網頁路由、WebSocket、OTA
-│   │   └── data/                   # SPIFFS 網頁 (index.html / app.js / style.css)
-│   └── ESP32_D1_mini_rc/
-│       ├── ESP32_D1_mini_rc.ino    # 遙控器主程式 (WiFi WebSocket 用戶端)
-│       ├── config.h                # 腳位、搖桿、預設 PID、AP 設定
-│       ├── settings.h              # /config.json 設定、FlyID、搖桿校正
-│       ├── input.h                 # 硬體搖桿 ADC 讀取與校正、SW1~SW4
-│       ├── display.h               # SSD1306 OLED 4 頁顯示
-│       ├── link.h                  # 與接收機的 WebSocket 連線、送命令
-│       ├── telem.h                 # 遙測解析
-│       ├── web.h                   # 網頁路由、PID / 模擬搖桿 / 馬達校正 API
-│       ├── data/                   # SPIFFS 網頁 (index.html / app.js / style.css / config.json)
-│       └── mdns.h                  # 輕量 mDNS (flybox-rc.local)，節省 flash 空間
+│   ├── ESP32_S3_flybox/               # 飛控板
+│   │   ├── ESP32_S3_flybox.ino        # 主程式：控制迴路、命令解析、遙測
+│   │   ├── config.h                   # 腳位、PID、ESC、濾波等所有設定
+│   │   ├── imu.h                      # BMI270/BMM150 讀取、零點校正、濾波、姿態融合
+│   │   ├── pid.h                      # PID (微分作用於量測值、積分限幅)
+│   │   ├── mixer.h                    # Quad-X / X8 同軸混控
+│   │   ├── motors.h                   # 8 通道 LEDC ESC 輸出
+│   │   ├── link.h                     # UART1 單行 JSON 收發
+│   │   └── jsonutil.h                 # 輕量 JSON 解析
+│   ├── WT32_ETH01_receiver/           # 接收機
+│   │   ├── WT32_ETH01_receiver.ino    # 接收機主程式 (RJ45 + WiFi + WebSocket 橋接)
+│   │   ├── config.h                   # 網路 / UART / 帳密設定
+│   │   ├── kkbox.h                    # 飛控 UART 橋接 (Serial2, 115200)
+│   │   ├── settings.h                 # NVS 設定、無人機 ID
+│   │   ├── web.h                      # 網頁路由、WebSocket、OTA
+│   │   └── data/                      # SPIFFS 網頁 (index.html / app.js / style.css)
+│   └── ESP32_D1_mini_rc/              # 遙控器
+│       ├── ESP32_D1_mini_rc.ino       # 遙控器主程式 (WiFi WebSocket 用戶端)
+│       ├── config.h                   # 腳位、搖桿、預設 PID、AP 設定
+│       ├── settings.h                 # /config.json 設定、FlyID、搖桿校正
+│       ├── input.h                    # 硬體搖桿 ADC 讀取與校正、SW1~SW4
+│       ├── display.h                  # SSD1306 OLED 4 頁顯示
+│       ├── link.h                     # 與接收機的 WebSocket 連線、送命令
+│       ├── telem.h                    # 遙測解析
+│       ├── web.h                      # 網頁路由、PID / 模擬搖桿 / 馬達校正 / OTA API
+│       ├── mdns.h                     # 輕量 mDNS (flybox-rc.local)，節省 flash 空間
+│       └── data/                      # SPIFFS 網頁 (index.html / app.js / style.css / config.json)
+├── test/
+│   └── led/led.ino                    # LED 測試草稿
 └── tools/
-    ├── spiffs.bat                  # 產生 spiffs.bin (SPIFFS 網頁檔映像，可 OTA 上傳)
-    └── make_spiffs.ps1             # spiffs.bat 的 PowerShell 實作
+    ├── spiffs.bat                     # 產生 spiffs.bin (SPIFFS 網頁檔映像，可 OTA 上傳)
+    └── make_spiffs.ps1                # spiffs.bat 的 PowerShell 實作
 ```
+
+## 軟體版本
+
+三塊板子共用同一版號，各板 `config.h` 的 `FW_VERSION` 必須一致；網頁「系統狀態」會顯示此值。
+
+| 韌體 | 目錄 | `FW_VERSION` |
+| ---- | ---- | ------------ |
+| 飛控板 | `firmware/ESP32_S3_flybox/` | `2.3.1` |
+| 接收機 | `firmware/WT32_ETH01_receiver/` | `2.3.1` |
+| 遙控器 | `firmware/ESP32_D1_mini_rc/` | `2.3.1` |
 
 ## 開發環境
 
@@ -167,7 +186,7 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 ```
 {"ack":"arm"}
-{"evt":"ready","fw":"ESP32-S3 Flybox","ver":"2.0.0"}
+{"evt":"ready","fw":"ESP32-S3 Flybox","ver":"2.3.1"}
 {"evt":"failsafe"}
 {"err":"bad cmd"}
 {"t":12345,"armed":1,"mcount":4,"hold":0,"magok":1,

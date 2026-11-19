@@ -1,7 +1,7 @@
 /*
  * ESP32-S3 飛控板 (M5Stack AtomS3R-Ext) 韌體
  * ---------------------------------------------------------------
- * 版本 (Version): 2.0.0        (見 config.h 的 FW_VERSION)
+ * 版本 (Version): 2.3.1        (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    ESP32-S3 Flybox
  * ---------------------------------------------------------------
  * - Arduino IDE 1.8.19 / ESP32 core 2.x 或 3.x

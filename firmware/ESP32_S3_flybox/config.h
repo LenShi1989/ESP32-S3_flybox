@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 #define FW_NAME    "ESP32-S3 Flybox"
-#define FW_VERSION "2.0.0"
+#define FW_VERSION "2.3.1"
 
 /* =============================================================
  * ESP32-S3 飛控板 (M5Stack AtomS3R-Ext) 設定

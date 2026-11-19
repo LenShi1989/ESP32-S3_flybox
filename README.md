@@ -349,7 +349,9 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 ```powershell
 # 清除 NVS（含 PHY 校正資料與 WiFi 設定；SPIFFS 的 /config.json 不受影響）
-python -m esptool --chip esp32 -p COM3 erase_region 0x9000 0x4000
+# esptool 版本目錄 (5.3.1) 請依實際安裝調整；COM3 改成遙控器的序列埠
+& "$env:LOCALAPPDATA\Arduino15\packages\esp32\tools\esptool_py\5.3.1\esptool.exe" `
+    --chip esp32 -p COM3 erase-region 0x9000 0x4000
 ```
 
 遙控器 2.3.1 起開機時會印出 `[SYS] 重置原因: ...`；若連續 3 次異常開機

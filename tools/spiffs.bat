@@ -6,12 +6,13 @@ rem  Default (receiver):
 rem      tools\spiffs.bat
 rem      -> firmware\WT32_ETH01_receiver\build\spiffs.bin
 rem
-rem  Receiver + remote controller:
+rem  All boards (receiver + remote controller + flybox):
 rem      tools\spiffs.bat -All
 rem      -> firmware\WT32_ETH01_receiver\build\spiffs.bin
 rem      -> firmware\ESP32_D1_mini_rc\build\spiffs.bin
+rem      -> firmware\ESP32_S3_flybox\build\spiffs.bin
 rem
-rem  ESP32-S3 Flybox:
+rem  ESP32-S3 Flybox only:
 rem      tools\spiffs.bat -Flybox
 rem      -> firmware\ESP32_S3_flybox\build\spiffs.bin
 rem

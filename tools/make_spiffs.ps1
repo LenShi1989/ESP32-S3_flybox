@@ -119,6 +119,7 @@ $jobs = @()
 if ($All) {
   $jobs += [pscustomobject]@{ Name = 'WT32_ETH01_receiver'; Data = (Join-Path $repo 'firmware\WT32_ETH01_receiver\data') }
   $jobs += [pscustomobject]@{ Name = 'ESP32_D1_mini_rc';    Data = (Join-Path $repo 'firmware\ESP32_D1_mini_rc\data') }
+  $jobs += [pscustomobject]@{ Name = 'ESP32_S3_flybox';     Data = (Join-Path $repo 'firmware\ESP32_S3_flybox\data') }
 } elseif ($Flybox) {
   $jobs += [pscustomobject]@{ Name = 'ESP32_S3_flybox'; Data = (Join-Path $repo 'firmware\ESP32_S3_flybox\data') }
 } else {

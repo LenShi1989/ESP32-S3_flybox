@@ -77,11 +77,11 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 
 三塊板子共用同一版號，各板 `config.h` 的 `FW_VERSION` 必須一致；網頁「系統狀態」會顯示此值。
 
-| 韌體 | 目錄 | `FW_VERSION` |
-| ---- | ---- | ------------ |
-| 飛控板 | `firmware/ESP32_S3_flybox/` | `2.3.3` |
-| 接收機 | `firmware/WT32_ETH01_receiver/` | `2.3.3` |
-| 遙控器 | `firmware/ESP32_D1_mini_rc/` | `2.3.3` |
+| 韌體   | 目錄                            | `FW_VERSION` |
+| ------ | ------------------------------- | ------------ |
+| 飛控板 | `firmware/ESP32_S3_flybox/`     | `2.3.3`      |
+| 接收機 | `firmware/WT32_ETH01_receiver/` | `2.3.3`      |
+| 遙控器 | `firmware/ESP32_D1_mini_rc/`    | `2.3.3`      |
 
 ## 開發環境
 
@@ -140,15 +140,15 @@ https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
 
 ## 接腳（`config.h`）
 
-| 功能                          | 預設 GPIO            | 說明                      |
-| ----------------------------- | -------------------- | ------------------------- |
-| RS-232 TX                     | G1                   | 飛控 TX → 接收機 RX       |
-| RS-232 RX                     | G2                   | 飛控 RX ← 接收機 TX       |
-| M1 FL / M2 FR / M3 RR / M4 RL | G5 / G6 / G7 / G8    | 上槳                      |
+| 功能                          | 預設 GPIO            | 說明                        |
+| ----------------------------- | -------------------- | --------------------------- |
+| RS-232 TX                     | G1                   | 飛控 TX → 接收機 RX         |
+| RS-232 RX                     | G2                   | 飛控 RX ← 接收機 TX         |
+| M1 FL / M2 FR / M3 RR / M4 RL | G5 / G6 / G7 / G8    | 上槳                        |
 | M5 FL / M6 FR / M7 RR / M8 RL | G38 / G39 / G3 / G4  | X8 下槳（G39 預設為狀態燈） |
 | 外接狀態燈                    | G39                  | 與板載 RGB 同步，遙控器控制 |
-| BMI270                        | SCL=G0, SDA=G45      | 板載，由 M5Unified 初始化 |
-| BMM150                        | 經 BMI270 Sensor Hub | 板載，由 M5Unified 讀取   |
+| BMI270                        | SCL=G0, SDA=G45      | 板載，由 M5Unified 初始化   |
+| BMM150                        | 經 BMI270 Sensor Hub | 板載，由 M5Unified 讀取     |
 
 > **注意**：腳位依 AtomS3R-Ext 官方規格：M1–M4 = G5–G8、M5–M8 = G38/G39/G3/G4，
 > RS-232 使用 PORT.CUSTOM 的 G1/G2。若實際拉線不同，請修改 `config.h`。
@@ -191,11 +191,11 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 | pid       | `{"cmd":"pid","axis":"roll","kp":3,"ki":0.08,"kd":8}` | 線上調 PID                              |
 | motmin    | `{"cmd":"motmin","index":1,"value":1050}`             | 最低啟動 PWM（index 0=全部，存 NVS）    |
 | nopid     | `{"cmd":"nopid","on":1}`                              | ESC 行程校正：略過 PID                  |
-| calibrate | `{"cmd":"calibrate","sensor":"bmi270"}`              | BMI270 陀螺零點校正（解鎖中拒絕）       |
-| calibrate | `{"cmd":"calibrate","sensor":"bmm150"}`              | BMM150 地磁校正：20 秒內旋轉機體        |
+| calibrate | `{"cmd":"calibrate","sensor":"bmi270"}`               | BMI270 陀螺零點校正（解鎖中拒絕）       |
+| calibrate | `{"cmd":"calibrate","sensor":"bmm150"}`               | BMM150 地磁校正：20 秒內旋轉機體        |
 | telemetry | `{"cmd":"telemetry","value":200}`                     | 遙測週期 ms（0=關閉）                   |
 | status    | `{"cmd":"status"}`                                    | 回報版本、油門、PID 以外的設定          |
-| led       | `{"cmd":"led","mode":"blink"}`                        | 板載 RGB + G39 狀態燈：on / off / blink  |
+| led       | `{"cmd":"led","mode":"blink"}`                        | 板載 RGB + G39 狀態燈：on / off / blink |
 
 ### 回應與遙測
 
@@ -228,39 +228,45 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 `firmware/ESP32_S3_flybox/` 自 v2.3.3 起內建獨立網頁介面，**可直接連線飛控板進行設定與監控**，不需經過接收機：
 
 ### 功能
+
 - **系統狀態**：韌體版本、運作時間、可用記憶體、WiFi 連線資訊 (SSID/IP/RSSI)、SoftAP 狀態、SPIFFS 檔案目錄與容量、RS232 通訊狀態
 - **WiFi 設定**：掃描附近 SSID、手動輸入 SSID/密碼、清除連線設定 (重開機生效)
 - **OTA 更新**：上傳 `firmware.bin` (韌體) 或 `spiffs.bin` (網頁檔映像)，完成自動重開機
 - **使用者設定**：變更登入帳號密碼、設定無人機 ID (0~255)、檢視/複製裝置連結 Token
 
 ### 連線方式
+
 1. **SoftAP (預設)**：開機自動啟動 `Flybox-XXXX` (MAC 後四碼)，密碼 `12345678`  
    連線後開啟 `http://192.168.4.1/` 或 `http://flybox.local/` (mDNS)
 2. **WiFi STA**：在「WiFi 設定」頁掃描並連線路由器，連線成功後飛控板會重開機，之後可用路由器分派的 IP 或 mDNS 連線
 
 ### 預設帳密
+
 - `admin` / `admin` (可在 `config.h` 的 `DEF_USER` / `DEF_PASS` 修改，或網頁登入後變更)
 
 ### API 端點
-| 端點 | 方法 | 說明 |
-|------|------|------|
-| `/api/status` | GET | 系統狀態 (JSON) |
-| `/api/fs` | GET | SPIFFS 檔案列表與容量 |
-| `/api/scan` | GET | WiFi 掃描結果 |
-| `/api/wifi` | POST | 連線/清除 WiFi (`ssid`/`pass` 或 `action=clear`) |
-| `/api/user` | GET/POST | 讀取/變更帳號密碼/Token |
-| `/api/id` | GET/POST | 讀取/設定無人機 ID |
-| `/api/command` | POST | 轉送單行 JSON 給飛控主迴路 (如 `{"cmd":"status"}`) |
-| `/api/ota/firmware` | POST | 韌體 OTA 上傳 (multipart/form-data, `file`) |
-| `/api/ota/spiffs` | POST | SPIFFS 映像 OTA 上傳 |
-| `/ws` | WS | WebSocket (即時雙向，同接收機協定) |
+
+| 端點                | 方法     | 說明                                               |
+| ------------------- | -------- | -------------------------------------------------- |
+| `/api/status`       | GET      | 系統狀態 (JSON)                                    |
+| `/api/fs`           | GET      | SPIFFS 檔案列表與容量                              |
+| `/api/scan`         | GET      | WiFi 掃描結果                                      |
+| `/api/wifi`         | POST     | 連線/清除 WiFi (`ssid`/`pass` 或 `action=clear`)   |
+| `/api/user`         | GET/POST | 讀取/變更帳號密碼/Token                            |
+| `/api/id`           | GET/POST | 讀取/設定無人機 ID                                 |
+| `/api/command`      | POST     | 轉送單行 JSON 給飛控主迴路 (如 `{"cmd":"status"}`) |
+| `/api/ota/firmware` | POST     | 韌體 OTA 上傳 (multipart/form-data, `file`)        |
+| `/api/ota/spiffs`   | POST     | SPIFFS 映像 OTA 上傳                               |
+| `/ws`               | WS       | WebSocket (即時雙向，同接收機協定)                 |
 
 ### WebSocket 協定
+
 - 連線：`ws://<IP>/ws?token=<deviceToken>` 或攜帶登入 cookie
 - 送出：單行 JSON 字串，直接透過 RS-232 轉送飛控主迴路
 - 收到：飛控回傳的遙測/ack/evt/err 等 JSON
 
 ### 使用方式
+
 1. 先編譯一次專案 (產生分割表)
 2. 執行 `tools\spiffs.bat -Flybox` 產生 `firmware\ESP32_S3_flybox\build\spiffs.bin`
 3. 燒錄韌體，再透過網頁「OTA 更新」上傳 `spiffs.bin`
@@ -323,12 +329,12 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 產生網頁檔映像（各板子輸出到自己的 `build/`）：
 
-| 目標 | 指令 | 輸出 |
-| ---- | ---- | ---- |
-| 三塊板子 | `tools\spiffs.bat -All` | 下列三個檔案 |
-| 接收機 | `tools\spiffs.bat` | `firmware\WT32_ETH01_receiver\build\spiffs.bin` |
-| 飛控板 | `tools\spiffs.bat -Flybox` | `firmware\ESP32_S3_flybox\build\spiffs.bin` |
-| 遙控器 | `tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data` | `firmware\ESP32_D1_mini_rc\build\spiffs.bin` |
+| 目標     | 指令                                                    | 輸出                                            |
+| -------- | ------------------------------------------------------- | ----------------------------------------------- |
+| 三塊板子 | `tools\spiffs.bat -All`                                 | 下列三個檔案                                    |
+| 接收機   | `tools\spiffs.bat`                                      | `firmware\WT32_ETH01_receiver\build\spiffs.bin` |
+| 飛控板   | `tools\spiffs.bat -Flybox`                              | `firmware\ESP32_S3_flybox\build\spiffs.bin`     |
+| 遙控器   | `tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data` | `firmware\ESP32_D1_mini_rc\build\spiffs.bin`    |
 
 上傳方式：板子網頁 →「OTA 更新」→ 選檔 → 上傳（顯示百分比進度），完成後自動重開機。
 

@@ -239,6 +239,27 @@ void loop() {
     lastInput = millis();
     inputRead();
 
+    /* --- 搖桿手勢解鎖/上鎖 (內八/外八) --- */
+    static uint32_t gestureMs = 0;
+    bool throttleLow = (gHw.thr <= THR_MIN_US + 50);
+    bool innerV = throttleLow && (gHw.roll  < -150) && (gHw.pitch < -150) && (gHw.yaw < -150);
+    bool outerV = throttleLow && (gHw.roll  >  150) && (gHw.pitch < -150) && (gHw.yaw >  150);
+
+    if (innerV || outerV) {
+      if (!gestureMs) gestureMs = millis();
+      else if (millis() - gestureMs > 500) {
+        if (innerV && !gTelem.armed && linkUp()) {
+          linkSend("{\"cmd\":\"arm\"}");
+          gestureMs = 0;
+        } else if (outerV && gTelem.armed && linkUp()) {
+          linkSend("{\"cmd\":\"disarm\"}");
+          gestureMs = 0;
+        }
+      }
+    } else {
+      gestureMs = 0;
+    }
+
     static bool prevSw3 = false, prevSw4 = false;
     if (gHw.sw3 && !prevSw3 && linkUp()) linkSend("{\"cmd\":\"arm\"}");
     if (gHw.sw4 && !prevSw4 && linkUp()) linkSend("{\"cmd\":\"disarm\"}");

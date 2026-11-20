@@ -76,6 +76,9 @@ public:
   bool magCalActive() const { return _magCalActive; }
   bool magCalValid()  const { return _magCalValid; }
 
+  /* 清除 BMM150 校正資料 (NVS)，重置為預設值 */
+  void magCalClear();
+
   /* 校正完成事件 (讀取後清除), 供主程式送出 evt */
   bool magCalDone() {
     if (!_magCalDone) return false;
@@ -226,6 +229,19 @@ private:
     p.putFloat("msy", _magScale[1]);
     p.putFloat("msz", _magScale[2]);
     p.end();
+  }
+
+  /* 清除 BMM150 校正資料 (NVS)，重置為預設值 */
+  void magCalClear() {
+    Preferences p;
+    if (!p.begin("flybox", false)) return;
+    p.remove("mox"); p.remove("moy"); p.remove("moz");
+    p.remove("msx"); p.remove("msy"); p.remove("msz");
+    p.end();
+    _magOff[0] = _magOff[1] = _magOff[2] = 0.0f;
+    _magScale[0] = _magScale[1] = _magScale[2] = 1.0f;
+    _magCalValid = false;
+    _attInit = false;   /* 重新初始化 yaw */
   }
 
   void updateMagCal() {

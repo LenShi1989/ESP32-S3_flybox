@@ -275,6 +275,10 @@ static void handleCommand(char* s) {
                "{\"ack\":\"calibrate\",\"sensor\":\"bmm150\",\"state\":\"start\",\"ms\":%u}",
                (unsigned)BMM150_CAL_MS);
       linkSendLine(b);
+    } else if (!strcmp(sensor, "clear")) {
+      /* 清除 BMM150 校正資料 (NVS) */
+      imu.magCalClear();
+      linkSendLine("{\"ack\":\"calibrate\",\"sensor\":\"clear\"}");
     } else {
       imu.calibrate(GYRO_CAL_SAMPLES);
       linkSendLine("{\"ack\":\"calibrate\",\"sensor\":\"bmi270\"}");

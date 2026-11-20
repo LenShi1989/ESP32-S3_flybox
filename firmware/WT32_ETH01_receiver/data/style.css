@@ -309,3 +309,16 @@ html[data-theme="glass"] .login-overlay{background-image:var(--bg-image);backgro
 /* OTA / 上傳進度條 */
 .progress{height:8px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;margin:10px 0 6px}
 .progress > span{display:block;height:100%;width:0;background:#37c2ff;transition:width .15s linear}
+
+/* 羅盤 */
+.compass-wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center;margin:12px 0}
+.compass{width:200px;height:200px;border-radius:50%;border:2px solid var(--line);background:var(--panel);flex:0 0 auto}
+.compass-info{display:flex;flex-direction:column;gap:8px;min-width:140px}
+.compass-row{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+.compass-label{font-size:13px;color:var(--muted)}
+.compass-value{font-size:18px;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums}
+@media (max-width:640px){
+  .compass{width:160px;height:160px}
+  .compass-info{min-width:120px}
+  .compass-value{font-size:16px}
+}

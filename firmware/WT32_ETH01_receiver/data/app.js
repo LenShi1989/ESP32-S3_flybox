@@ -245,6 +245,7 @@ function updateSensorPanels(t) {
     const yaw = (((+t.att.yaw || 0) % 360) + 360) % 360;
     $('att-yaw').textContent = yaw.toFixed(0);
     $('mag-heading').textContent = yaw.toFixed(0);
+    drawCompass(yaw, t.att.roll, t.att.pitch);
   }
   if (t.acc) {
     $('acc-x').textContent = (t.acc.x / 1000).toFixed(2);
@@ -264,6 +265,97 @@ function updateSensorPanels(t) {
       el.className = 'pill ' + (ok ? 'ok' : 'err');
     }
   }
+}
+
+/* ---------- 羅盤繪製 ---------- */
+function drawCompass(yaw, roll, pitch) {
+  const canvas = $('compass');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const cx = w / 2;
+  const cy = h / 2;
+  const r = Math.min(cx, cy) - 10;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // 背景圓
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--panel').trim() || '#181d24';
+  ctx.fill();
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--line').trim() || '#2b3340';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 度數刻度
+  ctx.font = '11px system-ui';
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8b97a6';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < 360; i += 30) {
+    const angle = (i - 90) * Math.PI / 180;
+    const isMajor = i % 90 === 0;
+    const r1 = r - (isMajor ? 20 : 12);
+    const r2 = r - 4;
+    const x1 = cx + r1 * Math.cos(angle);
+    const y1 = cy + r1 * Math.sin(angle);
+    const x2 = cx + r2 * Math.cos(angle);
+    const y2 = cy + r2 * Math.sin(angle);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = isMajor ? getComputedStyle(document.documentElement).getPropertyValue('--fg').trim() || '#e6ebf2' : getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8b97a6';
+    ctx.lineWidth = isMajor ? 2 : 1;
+    ctx.stroke();
+
+    if (isMajor) {
+      const label = i === 0 ? 'N' : i === 90 ? 'E' : i === 180 ? 'S' : 'W';
+      const lx = cx + (r - 35) * Math.cos(angle);
+      const ly = cy + (r - 35) * Math.sin(angle);
+      ctx.fillText(label, lx, ly);
+    }
+  }
+
+  // 方位角數字標示 (每 45 度)
+  ctx.font = '10px system-ui';
+  for (let i = 0; i < 360; i += 45) {
+    if (i % 90 === 0) continue;
+    const angle = (i - 90) * Math.PI / 180;
+    const lx = cx + (r - 35) * Math.cos(angle);
+    const ly = cy + (r - 35) * Math.sin(angle);
+    ctx.fillText(i + '°', lx, ly);
+  }
+
+  // 機頭指針 (紅色三角形，指向 yaw 方向)
+  const needleAngle = (yaw - 90) * Math.PI / 180;
+  const needleLen = r - 15;
+  const needleW = 10;
+  ctx.beginPath();
+  ctx.moveTo(cx + needleLen * Math.cos(needleAngle), cy + needleLen * Math.sin(needleAngle));
+  ctx.lineTo(cx + needleW * Math.cos(needleAngle + Math.PI * 0.8), cy + needleW * Math.sin(needleAngle + Math.PI * 0.8));
+  ctx.lineTo(cx + needleW * Math.cos(needleAngle - Math.PI * 0.8), cy + needleW * Math.sin(needleAngle - Math.PI * 0.8));
+  ctx.closePath();
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--err').trim() || '#ff5b5b';
+  ctx.fill();
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--fg').trim() || '#e6ebf2';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 中心點
+  ctx.beginPath();
+  ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--fg').trim() || '#e6ebf2';
+  ctx.fill();
+
+  // 更新側邊資訊
+  const ch = $('compass-heading');
+  const cr = $('compass-roll');
+  const cp = $('compass-pitch');
+  if (ch) ch.textContent = Math.round(yaw) + '°';
+  if (cr) cr.textContent = (roll >= 0 ? '+' : '') + roll.toFixed(1) + '°';
+  if (cp) cp.textContent = (pitch >= 0 ? '+' : '') + pitch.toFixed(1) + '°';
 }
 
 let motorsTouched = false;

@@ -275,13 +275,21 @@
           <div class="att-item"><span class="att-k">磁方位</span><span class="att-v" id="mag-heading">-</span><span class="att-u">°</span></div>
           <span id="mag-state" class="pill">-</span>
         </div>
+        <div class="compass-wrap">
+          <canvas id="compass" width="200" height="200" class="compass"></canvas>
+          <div class="compass-info">
+            <div class="compass-row"><span class="compass-label">磁北</span><span id="compass-heading" class="compass-value">-°</span></div>
+            <div class="compass-row"><span class="compass-label">Roll</span><span id="compass-roll" class="compass-value">-°</span></div>
+            <div class="compass-row"><span class="compass-label">Pitch</span><span id="compass-pitch" class="compass-value">-°</span></div>
+          </div>
+        </div>
         <div class="scroll-x">
           <table class="tbl compact">
             <thead><tr><th>磁力計 (µT)</th><th>X 前</th><th>Y 右</th><th>Z 下</th></tr></thead>
             <tbody><tr><th>目前值</th><td id="mag-x">-</td><td id="mag-y">-</td><td id="mag-z">-</td></tr></tbody>
           </table>
         </div>
-        <p class="muted small">BMM150 掛載於 BMI270 的 Sensor Hub，由飛控一併讀取；數值為機體座標分量。</p>
+        <p class="muted small">BMM150 掛載於 BMI270 的 Sensor Hub，由飛控一併讀取；數值為機體座標分量。羅盤以磁北為 0°，順時針增加；紅線指示機頭方向 (yaw)。</p>
       </div>
     </section>
 

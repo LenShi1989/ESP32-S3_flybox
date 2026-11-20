@@ -76,6 +76,9 @@ public:
   bool magCalActive() const { return _magCalActive; }
   bool magCalValid()  const { return _magCalValid; }
 
+  /* 清除 BMM150 校正資料 (NVS)，重置為預設值 */
+  void magCalClear();
+
   /* 校正完成事件 (讀取後清除), 供主程式送出 evt */
   bool magCalDone() {
     if (!_magCalDone) return false;

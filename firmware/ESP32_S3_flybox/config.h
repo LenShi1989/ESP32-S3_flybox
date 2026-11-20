@@ -118,7 +118,7 @@
 #define IMU_GYRO_PITCH_AXIS  1
 #define IMU_GYRO_PITCH_SIGN  (-1.0f)
 #define IMU_GYRO_YAW_AXIS    2
-#define IMU_GYRO_YAW_SIGN    (-1.0f)
+#define IMU_GYRO_YAW_SIGN    ( 1.0f)
 
 /* 加速度計機體軸 (單位 g): +X 前, +Y 右, +Z 下 */
 #define IMU_ACC_FORWARD_AXIS  0
@@ -126,7 +126,7 @@
 #define IMU_ACC_RIGHT_AXIS    1
 #define IMU_ACC_RIGHT_SIGN   (-1.0f)
 #define IMU_ACC_DOWN_AXIS     2
-#define IMU_ACC_DOWN_SIGN    (-1.0f)
+#define IMU_ACC_DOWN_SIGN    ( 1.0f)
 
 /* 地磁計機體軸 (單位 uT): 前 = -mY, 右 = +mX, 下 = +mZ */
 #define IMU_MAG_FORWARD_AXIS  1
@@ -134,7 +134,7 @@
 #define IMU_MAG_RIGHT_AXIS    0
 #define IMU_MAG_RIGHT_SIGN   ( 1.0f)
 #define IMU_MAG_DOWN_AXIS     2
-#define IMU_MAG_DOWN_SIGN    ( 1.0f)
+#define IMU_MAG_DOWN_SIGN    (-1.0f)
 
 /* ---------- 姿態融合 (六軸 + 地磁) ----------
  * 陀螺儀積分 -> 加速度計修正 roll/pitch (互補濾波),

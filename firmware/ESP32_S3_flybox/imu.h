@@ -125,6 +125,11 @@ public:
       _o[2] = sum[2] / n;
     }
     _f[0] = _f[1] = _f[2] = 0.0f;
+    _rate = { 0.0f, 0.0f, 0.0f };
+    _att  = { 0.0f, 0.0f, 0.0f };
+    _acc  = { 0.0f, 0.0f, 0.0f };
+    _mag  = { 0.0f, 0.0f, 0.0f };
+    _magRaw = { 0.0f, 0.0f, 0.0f };
 #if GYRO_KALMAN_ENABLE
     _kR.reset(); _kP.reset(); _kY.reset();
 #endif
@@ -303,8 +308,8 @@ private:
     if (accOk) {
       /* 靜止時加速度計量到的是「向上」的比力, 機體 +Z 向下 =>
        * 平放時 _acc.z = -1g。roll 右傾為正、pitch 抬頭為正。 */
-      rollAcc  = atan2f(-_acc.y, -_acc.z) * RAD_TO_DEG;
-      pitchAcc = atan2f(_acc.x, sqrtf(_acc.y * _acc.y + _acc.z * _acc.z)) * RAD_TO_DEG;
+      rollAcc  = atan2f(_acc.y, _acc.z) * RAD_TO_DEG;
+      pitchAcc = atan2f(-_acc.x, sqrtf(_acc.y * _acc.y + _acc.z * _acc.z)) * RAD_TO_DEG;
     }
 
     /* 第一筆有效資料: 直接以加速度計 / 地磁計初始化 */

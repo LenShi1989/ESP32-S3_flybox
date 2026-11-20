@@ -75,9 +75,9 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 
 | 韌體 | 目錄 | `FW_VERSION` |
 | ---- | ---- | ------------ |
-| 飛控板 | `firmware/ESP32_S3_flybox/` | `2.3.2` |
-| 接收機 | `firmware/WT32_ETH01_receiver/` | `2.3.2` |
-| 遙控器 | `firmware/ESP32_D1_mini_rc/` | `2.3.2` |
+| 飛控板 | `firmware/ESP32_S3_flybox/` | `2.3.3` |
+| 接收機 | `firmware/WT32_ETH01_receiver/` | `2.3.3` |
+| 遙控器 | `firmware/ESP32_D1_mini_rc/` | `2.3.3` |
 
 ## 開發環境
 
@@ -139,13 +139,19 @@ https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
 | RS-232 TX                     | G1                   | 飛控 TX → 接收機 RX       |
 | RS-232 RX                     | G2                   | 飛控 RX ← 接收機 TX       |
 | M1 FL / M2 FR / M3 RR / M4 RL | G5 / G6 / G7 / G8    | 上槳                      |
-| M5 FL / M6 FR / M7 RR / M8 RL | G38 / G39 / G3 / G4  | X8 下槳                   |
+| M5 FL / M6 FR / M7 RR / M8 RL | G38 / G39 / G3 / G4  | X8 下槳（G39 預設為狀態燈） |
+| 外接狀態燈                    | G39                  | 與板載 RGB 同步，遙控器控制 |
 | BMI270                        | SCL=G0, SDA=G45      | 板載，由 M5Unified 初始化 |
 | BMM150                        | 經 BMI270 Sensor Hub | 板載，由 M5Unified 讀取   |
 
 > **注意**：腳位依 AtomS3R-Ext 官方規格：M1–M4 = G5–G8、M5–M8 = G38/G39/G3/G4，
 > RS-232 使用 PORT.CUSTOM 的 G1/G2。若實際拉線不同，請修改 `config.h`。
 > RS-232 請確認是否外接 MAX3232 之類的收發器，勿直接把 RS-232 準位接到 GPIO。
+>
+> **狀態燈**：G39 預設作為外接狀態燈（`STATUS_LED_PIN`），與板載 RGB 同步，
+> 可用遙控器「模擬搖桿」頁的「狀態燈 G39」按鈕控制。因為 G39 同時是 X8 的 M6，
+> 啟用狀態燈後 8 槳模式會被拒絕（`{"err":"motor6 led"}`）；若要把 M6 改到其他腳位，
+> 修改 `MOTOR6_PIN` 即可恢復 X8。
 
 馬達位置 (Quad-X，Type-C 機頭朝上)：
 
@@ -183,13 +189,13 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 | calibrate | `{"cmd":"calibrate","sensor":"bmm150"}`              | BMM150 地磁校正：20 秒內旋轉機體        |
 | telemetry | `{"cmd":"telemetry","value":200}`                     | 遙測週期 ms（0=關閉）                   |
 | status    | `{"cmd":"status"}`                                    | 回報版本、油門、PID 以外的設定          |
-| led       | `{"cmd":"led","mode":"blink"}`                        | 板載 RGB LED：on / off / blink          |
+| led       | `{"cmd":"led","mode":"blink"}`                        | 板載 RGB + G39 狀態燈：on / off / blink  |
 
 ### 回應與遙測
 
 ```
 {"ack":"arm"}
-{"evt":"ready","fw":"ESP32-S3 Flybox","ver":"2.3.2"}
+{"evt":"ready","fw":"ESP32-S3 Flybox","ver":"2.3.3"}
 {"evt":"failsafe"}
 {"err":"bad cmd"}
 {"t":12345,"armed":1,"mcount":4,"hold":0,"magok":1,
@@ -207,7 +213,7 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
   若 `ok` 為 0 表示旋轉幅度不足，會保留舊校正值。
 - 遙測預設每 200ms 一筆（115200 下約 350 bytes/筆，仍有大量餘裕）。
 - 超過 `FAILSAFE_MS`（2000ms）沒收到任何命令會自動上鎖並送出 `failsafe`。
-- 解鎖後 LED 快閃（綠），未解鎖慢閃（藍）。
+- 解鎖後 LED 快閃（綠），未解鎖慢閃（藍）；G39 外接狀態燈與板載 RGB 同步。
 
 ## 接收機（WT32-ETH01）
 

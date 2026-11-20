@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 #define FW_NAME    "ESP32-S3 Flybox"
-#define FW_VERSION "2.3.2"
+#define FW_VERSION "2.3.3"
 
 /* =============================================================
  * ESP32-S3 飛控板 (M5Stack AtomS3R-Ext) 設定
@@ -15,6 +15,7 @@
  *   - MAG : BMM150 三軸地磁, 掛在 BMI270 的 Sensor Hub (輔助 I2C)
  *           由 M5Unified 的 BMI270 驅動一併讀取, 不需另外接線
  *   - 輸出: 4/8 顆 ESC (LEDC PWM 50Hz, 1000~2000us)
+ *   - 狀態燈: 板載 RGB + 外接 G39 GPIO LED (遙控器 led 命令控制)
  *   - 通訊: RS-232 (UART1, 115200 8N1) <-> WT32-ETH01 接收機
  *
  * 機體方向:
@@ -54,7 +55,7 @@
 #define MOTOR3_PIN  7    /* RR, CCW */
 #define MOTOR4_PIN  8    /* RL, CW  */
 #define MOTOR5_PIN 38    /* FL 下槳, CW  */
-#define MOTOR6_PIN 39    /* FR 下槳, CCW */
+#define MOTOR6_PIN 39    /* FR 下槳, CCW (預設改為狀態燈, 見檔尾) */
 #define MOTOR7_PIN  3    /* RR 下槳, CW  */
 #define MOTOR8_PIN  4    /* RL 下槳, CCW */
 
@@ -185,5 +186,19 @@
 
 /* ---------- 板載 RGB LED (AtomS3R, 由 M5Unified 控制) ---------- */
 #define USE_STATUS_LED 1
+
+/* ---------- 外接 GPIO 狀態燈 ----------
+ * G39 外接 LED (G39 -> 限流電阻 -> LED -> GND, 高電位亮),
+ * 與板載 RGB 同步, 由遙控器「模擬搖桿」頁或序列命令控制:
+ *   {"cmd":"led","mode":"on"|"off"|"blink"}
+ * 未解鎖慢閃, 已解鎖快閃 (與板載 RGB 相同)。
+ *
+ * 注意: G39 原本是 X8 的 M6 (FR 下槳)。啟用狀態燈後 M6 不再輸出,
+ * 因此要求 8 槳時會回 {"err":"motor6 led"} 並維持原槳數。
+ * 若要把 M6 改到其他腳位, 修改 MOTOR6_PIN 使兩者不同即可恢復 X8。
+ */
+#define USE_GPIO_STATUS_LED    1
+#define STATUS_LED_PIN         39
+#define STATUS_LED_ACTIVE_HIGH 1
 
 #endif

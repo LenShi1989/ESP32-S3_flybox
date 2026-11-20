@@ -1,7 +1,7 @@
 /*
  * ESP32-S3 飛控板 (M5Stack AtomS3R-Ext) 韌體
  * ---------------------------------------------------------------
- * 版本 (Version): 2.3.2        (見 config.h 的 FW_VERSION)
+ * 版本 (Version): 2.3.3        (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    ESP32-S3 Flybox
  * ---------------------------------------------------------------
  * - Arduino IDE 1.8.19 / ESP32 core 2.x 或 3.x
@@ -13,6 +13,7 @@
  *   命令: ping / led / arm / disarm / calibrate (bmi270/bmm150) / nopid /
  *         throttle / hold / motors / setpoints / pid / motmin / telemetry / status
  * - 開機預設 4 槳 Quad-X (X4), 可執行中切換 8 槳 X8 同軸
+ * - 狀態燈: 板載 RGB + 外接 G39 LED, 由遙控器 led 命令控制
  * - 機頭方向 = USB Type-C 接口方向
  * - 各馬達最低啟動 PWM 存於 NVS, 重開機仍保留
  *
@@ -90,14 +91,23 @@ static void ackCmd(const char* what) {
   linkSendLine(b);
 }
 
-/* ---------------- 板載 LED ---------------- */
+/* ---------------- 狀態燈 (板載 RGB + 外接 GPIO) ---------------- */
 static void ledWrite(bool on) {
+#if USE_GPIO_STATUS_LED
+#if STATUS_LED_ACTIVE_HIGH
+  digitalWrite(STATUS_LED_PIN, on ? HIGH : LOW);
+#else
+  digitalWrite(STATUS_LED_PIN, on ? LOW : HIGH);
+#endif
+#endif
+
 #if USE_STATUS_LED
-  if (!M5.Led.isEnabled()) return;
-  /* 未解鎖: 藍燈, 已解鎖: 綠燈 */
-  if (on) M5.Led.setAllColor(0, armed ? 255 : 0, armed ? 0 : 255);
-  else    M5.Led.setAllColor(0, 0, 0);
-  M5.Led.display();
+  if (M5.Led.isEnabled()) {
+    /* 未解鎖: 藍燈, 已解鎖: 綠燈 */
+    if (on) M5.Led.setAllColor(0, armed ? 255 : 0, armed ? 0 : 255);
+    else    M5.Led.setAllColor(0, 0, 0);
+    M5.Led.display();
+  }
 #else
   (void)on;
 #endif
@@ -276,7 +286,11 @@ static void handleCommand(char* s) {
     ackCmd("hold");
 
   } else if (!strcmp(cmd, "motors")) {
-    motorsApplyCount((uint8_t)jInt(s, "count", motorCount));
+    if (!motorsApplyCount((uint8_t)jInt(s, "count", motorCount))) {
+      /* G39 狀態燈占用 M6, 無法使用 X8 */
+      linkSendLine("{\"err\":\"motor6 led\"}");
+      return;
+    }
     ackCmd("motors");
 
   } else if (!strcmp(cmd, "setpoints")) {
@@ -345,6 +359,11 @@ void setup() {
   Serial.printf("\n[SYS] %s v%s\n", FW_NAME, FW_VERSION);
   Serial.println("[SYS] 機頭 = USB Type-C, 預設 4 槳 Quad-X (X4)");
 
+#if USE_GPIO_STATUS_LED
+  pinMode(STATUS_LED_PIN, OUTPUT);
+  ledWrite(false);
+#endif
+
   if (!imu.begin()) {
     Serial.println("[IMU] BMI270 初始化失敗, 將拒絕解鎖");
   } else {
@@ -358,6 +377,11 @@ void setup() {
   motorMinLoad();
   motorsInit();
   motorsApplyCount(MOTOR_COUNT);
+
+#if USE_GPIO_STATUS_LED
+  Serial.printf("[LED] 外接狀態燈 G%d, %s\n", STATUS_LED_PIN,
+                MOTOR6_OUTPUT_ENABLED ? "M6 仍可用" : "M6 已停用 (X8 不可用)");
+#endif
 
   pidRoll.setTunings(PID_ROLL_KP, PID_ROLL_KI, PID_ROLL_KD);
   pidPitch.setTunings(PID_PITCH_KP, PID_PITCH_KI, PID_PITCH_KD);

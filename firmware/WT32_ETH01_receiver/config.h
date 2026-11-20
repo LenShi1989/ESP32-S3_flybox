@@ -4,7 +4,7 @@
 /* =============================================================
  * WT32-ETH01 接收機 (Receiver) 設定
  * -------------------------------------------------------------
- * 版本 (Version): 2.3.2   (見 FW_VERSION)
+ * 版本 (Version): 2.3.3   (見 FW_VERSION)
  * 名稱 (Name):    WT32-ETH01 Receiver
  * -------------------------------------------------------------
  * 功能:
@@ -18,7 +18,7 @@
 #include <Arduino.h>
 
 #define FW_NAME    "WT32-ETH01 Receiver"
-#define FW_VERSION "2.3.2"
+#define FW_VERSION "2.3.3"
 
 /* ---------- 與 KKBOX 飛控板的 UART ---------- */
 #define KK_RX_PIN   5

@@ -75,9 +75,9 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 
 | 韌體 | 目錄 | `FW_VERSION` |
 | ---- | ---- | ------------ |
-| 飛控板 | `firmware/ESP32_S3_flybox/` | `2.3.1` |
-| 接收機 | `firmware/WT32_ETH01_receiver/` | `2.3.1` |
-| 遙控器 | `firmware/ESP32_D1_mini_rc/` | `2.3.1` |
+| 飛控板 | `firmware/ESP32_S3_flybox/` | `2.3.2` |
+| 接收機 | `firmware/WT32_ETH01_receiver/` | `2.3.2` |
+| 遙控器 | `firmware/ESP32_D1_mini_rc/` | `2.3.2` |
 
 ## 開發環境
 
@@ -179,7 +179,8 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 | pid       | `{"cmd":"pid","axis":"roll","kp":3,"ki":0.08,"kd":8}` | 線上調 PID                              |
 | motmin    | `{"cmd":"motmin","index":1,"value":1050}`             | 最低啟動 PWM（index 0=全部，存 NVS）    |
 | nopid     | `{"cmd":"nopid","on":1}`                              | ESC 行程校正：略過 PID                  |
-| calibrate | `{"cmd":"calibrate"}`                                 | 重新校正陀螺零點（解鎖中拒絕）          |
+| calibrate | `{"cmd":"calibrate","sensor":"bmi270"}`              | BMI270 陀螺零點校正（解鎖中拒絕）       |
+| calibrate | `{"cmd":"calibrate","sensor":"bmm150"}`              | BMM150 地磁校正：20 秒內旋轉機體        |
 | telemetry | `{"cmd":"telemetry","value":200}`                     | 遙測週期 ms（0=關閉）                   |
 | status    | `{"cmd":"status"}`                                    | 回報版本、油門、PID 以外的設定          |
 | led       | `{"cmd":"led","mode":"blink"}`                        | 板載 RGB LED：on / off / blink          |
@@ -188,7 +189,7 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 ```
 {"ack":"arm"}
-{"evt":"ready","fw":"ESP32-S3 Flybox","ver":"2.3.1"}
+{"evt":"ready","fw":"ESP32-S3 Flybox","ver":"2.3.2"}
 {"evt":"failsafe"}
 {"err":"bad cmd"}
 {"t":12345,"armed":1,"mcount":4,"hold":0,"magok":1,
@@ -201,6 +202,9 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 - 遙測欄位：`gyro` 為 deg/s；`att` 為度 (yaw 0~360)；`acc` 為 mg；`mag` 為 0.1µT；
   `magok` 表示 BMM150 是否有效。
+- BMM150 校正開始會回 `{"ack":"calibrate","sensor":"bmm150","state":"start","ms":20000}`，
+  時間到再送 `{"evt":"magcal","sensor":"bmm150","ok":1}`；校正值存於 NVS，重開機仍保留。
+  若 `ok` 為 0 表示旋轉幅度不足，會保留舊校正值。
 - 遙測預設每 200ms 一筆（115200 下約 350 bytes/筆，仍有大量餘裕）。
 - 超過 `FAILSAFE_MS`（2000ms）沒收到任何命令會自動上鎖並送出 `failsafe`。
 - 解鎖後 LED 快閃（綠），未解鎖慢閃（藍）。
@@ -210,7 +214,7 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 `firmware/WT32_ETH01_receiver/` 是飛控與遙控器之間的橋接：
 
 - RJ45 (LAN8720A) 有線網路 + WiFi STA + SoftAP 可同時運作。
-- 網頁（SPIFFS）顯示飛控遙測：**三軸陀螺儀長條圖**、**BMI270 六軸姿態 (Roll/Pitch/Yaw + 加速度計)**、
+- 網頁（SPIFFS）顯示飛控遙測：**三軸即時角度長條圖**、**BMI270 六軸姿態 (Roll/Pitch/Yaw + 加速度計)**、
   **BMM150 三軸地磁與磁方位**、馬達輸出、解鎖狀態。
 - **無人機 ID 設定**（0–255，存 NVS），顯示於飛行狀態頁；`GET/POST /api/id`。
 - 飛控送出的每一行 JSON 原樣經 WebSocket 廣播，遙控器與網頁看到的是同一份資料。
@@ -292,6 +296,8 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 把命令轉給飛控板。
 
 - **虛擬控制搖桿**：網頁「模擬搖桿」頁，觸控/滑鼠拖曳即時送出 `setpoints` 與 `throttle`。
+- **IMU 校正**：遙控器「模擬搖桿」頁的「IMU 校正」，可分別校正 BMI270 陀螺零點與
+  BMM150 地磁（硬鐵 / 軟鐵）；BMM150 校正時需在 20 秒內把機體各方向緩慢旋轉。
 - **PID 參數校正**：網頁「PID 設定」頁，roll / pitch / yaw 各自 Kp / Ki / Kd，
   下傳 `{"cmd":"pid","axis":...}`。
 - **PWM 馬達最低啟動數值設定**：網頁「馬達校正」頁，M1–M8 各自設定並下傳 `motmin`。

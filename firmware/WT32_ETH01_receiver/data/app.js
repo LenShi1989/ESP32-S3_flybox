@@ -165,7 +165,7 @@ function applyTelemetry(t) {
 
   if (t.set) updateGauge(t.set.thr);
   if (t.motor) updatePie(t.motor);
-  updateGyroBars(t.gyro);
+  updateAngleBars(t.att);
   updateSensorPanels(t);
   $('f-armed').textContent = t.armed ? '解鎖' : '上鎖';
   if (t.mcount !== undefined) {
@@ -210,20 +210,30 @@ function updatePie(motors) {
   $('motor-legend').innerHTML = html;
 }
 
-/* ---------- 三軸陀螺儀橫條圖 (±200 deg/s, 0 置中) ---------- */
-const GYRO_FS = 200;
+/* ---------- 三軸即時角度橫條圖 (Roll/Pitch ±90°, Yaw 0~360°) ---------- */
+const ATT_FS = 90;
 
-function updateGyroBars(g) {
-  ['roll', 'pitch', 'yaw'].forEach(function (k) {
-    const v = Math.max(-GYRO_FS, Math.min(GYRO_FS, g[k] || 0));
-    const frac = v / GYRO_FS;
-    const fill = $('gyro-bar-' + k), val = $('gyro-val-' + k);
+function updateAngleBars(a) {
+  if (!a) return;
+  ['roll', 'pitch'].forEach(function (k) {
+    const v = Math.max(-ATT_FS, Math.min(ATT_FS, a[k] || 0));
+    const frac = v / ATT_FS;
+    const fill = $('angle-bar-' + k), val = $('angle-val-' + k);
     if (!fill) return;
     fill.style.left = (50 + Math.min(0, frac) * 50) + '%';
     fill.style.width = (Math.abs(frac) * 50) + '%';
     fill.style.background = v >= 0 ? 'var(--accent)' : 'var(--warn)';
-    if (val) val.textContent = (v >= 0 ? '+' : '') + v.toFixed(0);
+    if (val) val.textContent = (v >= 0 ? '+' : '') + v.toFixed(0) + '°';
   });
+
+  const yaw = (((+a.yaw || 0) % 360) + 360) % 360;
+  const yf = $('angle-bar-yaw'), yv = $('angle-val-yaw');
+  if (yf) {
+    yf.style.left = '0';
+    yf.style.width = (yaw / 360 * 100) + '%';
+    yf.style.background = 'var(--accent)';
+  }
+  if (yv) yv.textContent = (Math.round(yaw) % 360) + '°';
 }
 
 /* ---------- 六軸姿態 / 三軸地磁 ---------- */

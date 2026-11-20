@@ -233,6 +233,9 @@ html[data-theme="glass"] .pad{backdrop-filter:blur(14px) saturate(140%);-webkit-
 input[type=range]{width:100%;margin-top:10px;accent-color:var(--accent)}
 .joy-ctrl .row{justify-content:flex-start;gap:10px;flex-wrap:wrap}
 .joy-ctrl .row button{margin-top:6px}
+.imu-cal{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.imu-cal .row{justify-content:flex-start;gap:10px;flex-wrap:wrap}
+.imu-cal .row button{margin-top:6px}
 
 /* ============ 平板 / 手機: 抽屜式側欄 ============ */
 @media (max-width:1024px){

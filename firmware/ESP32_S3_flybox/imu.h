@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <M5Unified.h>
+#include <Preferences.h>
 #include "config.h"
 
 /* 機體座標 (NED): +X 前 (Type-C), +Y 右, +Z 下 */
@@ -37,31 +38,70 @@ private:
 };
 
 /* BMI270 + BMM150 讀取器:
- *   1. 開機 / calibrate() 時量測陀螺靜止零點偏移。
+ *   1. 開機 / calibrate() 時量測 BMI270 陀螺靜止零點偏移。
  *   2. update() 讀取 M5Unified 的最新資料, 扣除零點、轉到機體座標,
  *      對角速度做卡爾曼濾波, 並以互補濾波估 roll / pitch / yaw。
  *   3. BMM150 位於 BMI270 的 Sensor Hub, M5Unified 會一併讀取;
  *      mag.ok() 表示地磁資料有效 (BMM150 有回應且量值合理)。
+ *   4. BMM150 校正 (硬鐵零點 + 軟鐵比例) 存於 NVS, 重開機仍保留。
  */
 class Imu {
 public:
-  Imu() : _ok(false), _magOk(false), _attInit(false), _lastUs(0) {
+  Imu() : _ok(false), _magOk(false), _attInit(false), _lastUs(0),
+          _magCalActive(false), _magCalDone(false), _magCalValid(false),
+          _magCalStartMs(0), _magCalMs(0), _magCalSamples(0) {
     _o[0] = _o[1] = _o[2] = 0.0f;
     _f[0] = _f[1] = _f[2] = 0.0f;
     _rate = { 0.0f, 0.0f, 0.0f };
     _att  = { 0.0f, 0.0f, 0.0f };
     _acc  = { 0.0f, 0.0f, 0.0f };
     _mag  = { 0.0f, 0.0f, 0.0f };
+    _magRaw = { 0.0f, 0.0f, 0.0f };
+    for (uint8_t i = 0; i < 3; i++) {
+      _magOff[i]   = 0.0f;
+      _magScale[i] = 1.0f;
+      _magMin[i]   = 1e9f;
+      _magMax[i]   = -1e9f;
+    }
   }
 
   bool begin() {
+    magCalLoad();
     _ok = M5.Imu.isEnabled();
     return _ok;
   }
   bool ok() const    { return _ok; }
   bool magOk() const { return _magOk; }
 
-  /* 量測陀螺靜止零點 (機體必須靜止放平); 同時重置濾波器與姿態 */
+  bool magCalActive() const { return _magCalActive; }
+  bool magCalValid()  const { return _magCalValid; }
+
+  /* 校正完成事件 (讀取後清除), 供主程式送出 evt */
+  bool magCalDone() {
+    if (!_magCalDone) return false;
+    _magCalDone = false;
+    return true;
+  }
+
+  /* BMM150 硬鐵 / 軟鐵校正: 期間請把機體各方向緩慢旋轉。
+   * 非阻塞; update() 收集樣本, 時間到自動計算並存入 NVS。 */
+  bool magCalStart(uint32_t durationMs) {
+    if (!_ok || _magCalActive) return false;
+    if (durationMs == 0) durationMs = BMM150_CAL_MS;
+    _magCalActive  = true;
+    _magCalDone    = false;
+    _magCalValid   = false;
+    _magCalMs      = durationMs;
+    _magCalStartMs = millis();
+    _magCalSamples = 0;
+    for (uint8_t i = 0; i < 3; i++) {
+      _magMin[i] =  1e9f;
+      _magMax[i] = -1e9f;
+    }
+    return true;
+  }
+
+  /* 量測 BMI270 陀螺靜止零點 (機體必須靜止放平); 同時重置濾波器與姿態 */
   void calibrate(uint16_t samples) {
     if (samples == 0) samples = 1;
     float sum[3] = { 0.0f, 0.0f, 0.0f };
@@ -130,9 +170,15 @@ public:
     _acc.z = d.accel.value[IMU_ACC_DOWN_AXIS]    * IMU_ACC_DOWN_SIGN;
 
     /* ---- 地磁計 (uT): +X 前 / +Y 右 / +Z 下 ---- */
-    _mag.x = d.mag.value[IMU_MAG_FORWARD_AXIS] * IMU_MAG_FORWARD_SIGN;
-    _mag.y = d.mag.value[IMU_MAG_RIGHT_AXIS]   * IMU_MAG_RIGHT_SIGN;
-    _mag.z = d.mag.value[IMU_MAG_DOWN_AXIS]    * IMU_MAG_DOWN_SIGN;
+    _magRaw.x = d.mag.value[IMU_MAG_FORWARD_AXIS] * IMU_MAG_FORWARD_SIGN;
+    _magRaw.y = d.mag.value[IMU_MAG_RIGHT_AXIS]   * IMU_MAG_RIGHT_SIGN;
+    _magRaw.z = d.mag.value[IMU_MAG_DOWN_AXIS]    * IMU_MAG_DOWN_SIGN;
+
+    /* 校正期間收集未補償樣本; 完成後套用硬鐵零點與軟鐵比例 */
+    if (_magCalActive) updateMagCal();
+    _mag.x = (_magRaw.x - _magOff[0]) * _magScale[0];
+    _mag.y = (_magRaw.y - _magOff[1]) * _magScale[1];
+    _mag.z = (_magRaw.z - _magOff[2]) * _magScale[2];
 
     float magNorm = sqrtf(_mag.x * _mag.x + _mag.y * _mag.y + _mag.z * _mag.z);
     /* BMM150 量測範圍約 ±1300uT; 地球磁場約 25~65uT。
@@ -149,6 +195,83 @@ public:
   const Axis3&    mag()      const { return _mag; }
 
 private:
+  /* ---------- BMM150 校正資料 (NVS) ---------- */
+  void magCalLoad() {
+    Preferences p;
+    if (!p.begin("flybox", true)) return;
+    if (p.isKey("mox") && p.isKey("moy") && p.isKey("moz") &&
+        p.isKey("msx") && p.isKey("msy") && p.isKey("msz")) {
+      _magOff[0]   = p.getFloat("mox", 0.0f);
+      _magOff[1]   = p.getFloat("moy", 0.0f);
+      _magOff[2]   = p.getFloat("moz", 0.0f);
+      _magScale[0] = p.getFloat("msx", 1.0f);
+      _magScale[1] = p.getFloat("msy", 1.0f);
+      _magScale[2] = p.getFloat("msz", 1.0f);
+    }
+    p.end();
+  }
+
+  void magCalSave() {
+    Preferences p;
+    if (!p.begin("flybox", false)) return;
+    p.putFloat("mox", _magOff[0]);
+    p.putFloat("moy", _magOff[1]);
+    p.putFloat("moz", _magOff[2]);
+    p.putFloat("msx", _magScale[0]);
+    p.putFloat("msy", _magScale[1]);
+    p.putFloat("msz", _magScale[2]);
+    p.end();
+  }
+
+  void updateMagCal() {
+    float n = sqrtf(_magRaw.x * _magRaw.x + _magRaw.y * _magRaw.y +
+                    _magRaw.z * _magRaw.z);
+    if (n > 5.0f && n < 2000.0f) {
+      if (_magRaw.x < _magMin[0]) _magMin[0] = _magRaw.x;
+      if (_magRaw.x > _magMax[0]) _magMax[0] = _magRaw.x;
+      if (_magRaw.y < _magMin[1]) _magMin[1] = _magRaw.y;
+      if (_magRaw.y > _magMax[1]) _magMax[1] = _magRaw.y;
+      if (_magRaw.z < _magMin[2]) _magMin[2] = _magRaw.z;
+      if (_magRaw.z > _magMax[2]) _magMax[2] = _magRaw.z;
+      _magCalSamples++;
+    }
+
+    if (millis() - _magCalStartMs < _magCalMs) return;
+
+    _magCalActive = false;
+    _magCalDone   = true;
+    _magCalValid  = false;
+    if (_magCalSamples < 20) return;
+
+    float span[3] = {
+      _magMax[0] - _magMin[0],
+      _magMax[1] - _magMin[1],
+      _magMax[2] - _magMin[2]
+    };
+    for (uint8_t i = 0; i < 3; i++) {
+      if (span[i] < MAG_CAL_MIN_SPAN_UT) return;
+    }
+
+    float half[3];
+    float avg = 0.0f;
+    for (uint8_t i = 0; i < 3; i++) {
+      half[i] = span[i] * 0.5f;
+      avg += half[i];
+    }
+    avg /= 3.0f;
+
+    for (uint8_t i = 0; i < 3; i++) {
+      _magOff[i] = (_magMin[i] + _magMax[i]) * 0.5f;
+      float s = avg / half[i];
+      if (s < 0.25f) s = 0.25f;
+      if (s > 4.0f)  s = 4.0f;
+      _magScale[i] = s;
+    }
+    magCalSave();
+    _magCalValid = true;
+    _attInit = false;   /* 用新的地磁校正值重新初始化 yaw */
+  }
+
   static float wrap180(float a) {
     while (a >  180.0f) a -= 360.0f;
     while (a < -180.0f) a += 360.0f;
@@ -226,6 +349,19 @@ private:
   Attitude _att;
   Axis3    _acc;
   Axis3    _mag;
+  Axis3    _magRaw;   /* 未補償地磁 (機體座標) */
+
+  /* BMM150 校正狀態 / 資料 */
+  bool     _magCalActive;
+  bool     _magCalDone;
+  bool     _magCalValid;
+  uint32_t _magCalStartMs;
+  uint32_t _magCalMs;
+  uint32_t _magCalSamples;
+  float    _magOff[3];
+  float    _magScale[3];
+  float    _magMin[3];
+  float    _magMax[3];
 #if GYRO_KALMAN_ENABLE
   Kalman1D _kR, _kP, _kY;
 #endif

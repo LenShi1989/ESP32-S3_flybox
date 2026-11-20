@@ -231,26 +231,26 @@
         </div>
       </div>
 
-      <h3>三軸陀螺儀 (deg/s)</h3>
+      <h3>三軸即時角度 (deg)</h3>
       <div class="card">
         <div class="gyro-bars">
           <div class="gyro-row">
             <span class="gyro-name">Roll</span>
-            <div class="gyro-track"><span class="gyro-mid"></span><span id="gyro-bar-roll" class="gyro-fill"></span></div>
-            <span id="gyro-val-roll" class="gyro-val">-</span>
+            <div class="gyro-track"><span class="gyro-mid"></span><span id="angle-bar-roll" class="gyro-fill"></span></div>
+            <span id="angle-val-roll" class="gyro-val">-</span>
           </div>
           <div class="gyro-row">
             <span class="gyro-name">Pitch</span>
-            <div class="gyro-track"><span class="gyro-mid"></span><span id="gyro-bar-pitch" class="gyro-fill"></span></div>
-            <span id="gyro-val-pitch" class="gyro-val">-</span>
+            <div class="gyro-track"><span class="gyro-mid"></span><span id="angle-bar-pitch" class="gyro-fill"></span></div>
+            <span id="angle-val-pitch" class="gyro-val">-</span>
           </div>
           <div class="gyro-row">
             <span class="gyro-name">Yaw</span>
-            <div class="gyro-track"><span class="gyro-mid"></span><span id="gyro-bar-yaw" class="gyro-fill"></span></div>
-            <span id="gyro-val-yaw" class="gyro-val">-</span>
+            <div class="gyro-track"><span class="gyro-mid"></span><span id="angle-bar-yaw" class="gyro-fill"></span></div>
+            <span id="angle-val-yaw" class="gyro-val">-</span>
           </div>
         </div>
-        <p class="muted small">以 0 為中心，滿刻度 ±200 deg/s</p>
+        <p class="muted small">即時偵測角度：Roll / Pitch 以水平為 0°，Yaw 以磁北為 0° 順時針增加；Roll / Pitch 滿刻度 ±90°</p>
       </div>
 
       <h3>六軸姿勢感測器 (BMI270)</h3>

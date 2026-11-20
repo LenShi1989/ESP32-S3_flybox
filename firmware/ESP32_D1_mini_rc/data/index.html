@@ -256,8 +256,16 @@
             <button id="btn-disarm" class="danger">上鎖 DISARM</button>
           </div>
           <div class="row">
-            <button id="btn-cal" class="ghost">陀螺校正</button>
+            <button id="btn-imu" class="ghost">IMU 校正</button>
             <button id="btn-reset" class="ghost">歸零</button>
+          </div>
+          <div id="imu-cal" class="imu-cal hidden">
+            <p class="muted small">BMI270：保持機體靜止放平。BMM150：開始後 20 秒內將機體各方向緩慢旋轉。</p>
+            <div class="row">
+              <button id="btn-cal-bmi270">校正 BMI270</button>
+              <button id="btn-cal-bmm150">校正 BMM150</button>
+            </div>
+            <p class="muted small" id="imu-cal-state">尚未校正</p>
           </div>
           <div class="row">
             <button id="btn-hold" class="ghost">定高：關</button>

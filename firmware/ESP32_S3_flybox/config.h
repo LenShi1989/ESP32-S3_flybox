@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 #define FW_NAME    "ESP32-S3 Flybox"
-#define FW_VERSION "2.3.1"
+#define FW_VERSION "2.3.2"
 
 /* =============================================================
  * ESP32-S3 飛控板 (M5Stack AtomS3R-Ext) 設定
@@ -85,6 +85,11 @@
 
 /* ---------- IMU 校正與濾波 ---------- */
 #define GYRO_CAL_SAMPLES 400
+
+/* BMM150 校正: 開始後請在時間內把機體各方向緩慢旋轉一圈以上。
+ * 每軸變化量太小 (例如只繞單軸轉) 視為無效, 保留舊校正值。 */
+#define BMM150_CAL_MS        20000
+#define MAG_CAL_MIN_SPAN_UT  10.0f
 
 /* ---------- 機體軸向對應 (Type-C = 機頭) ----------
  * M5Unified 已對 AtomS3R-Ext 做固定軸向校正, getImuData() 的

@@ -197,6 +197,12 @@ function connectWs() {
       else if (m.mmin) { showMmin(m.mmin); if (m.ack) onAck(m.ack, 'ws'); }
       else if (m.ack) onAck(m.ack, 'ws');
       else if (m.err) onLinkErr(m.err);
+      else if (m.evt === 'magcal') {
+        const ok = !!m.ok, st = $('imu-cal-state');
+        if (st) st.textContent = ok ? 'BMM150 校正完成，已儲存於飛控'
+                                    : 'BMM150 校正失敗：旋轉幅度不足，請重試';
+        toast(ok ? '✓ BMM150 校正完成' : '✗ BMM150 校正失敗', ok ? 'ok' : 'err');
+      }
       else if (m.evt === 'failsafe') onLinkErr('飛控 failsafe 已自動上鎖');
     } catch (e) {}
   };
@@ -227,6 +233,13 @@ const pendingCmd = {};
 let lastErrAt = 0;
 let lastAckPoll = '';
 function onAck(cmd, src) {
+  if (cmd === 'calibrate') {
+    const cal = $('imu-cal'), stateEl = $('imu-cal-state');
+    if (cal && stateEl) {
+      if (cal.dataset.sensor === 'bmi270') stateEl.textContent = 'BMI270 校正完成';
+      else if (cal.dataset.sensor === 'bmm150') stateEl.textContent = 'BMM150 校正進行中…';
+    }
+  }
   if (cmd === 'motmin' && mminPending > 0) {
     /* WS 已即時收到時, HTTP 輪詢的舊 ack 不重複計數 */
     if (src === 'poll' && ws && ws.readyState === 1) return;
@@ -536,7 +549,18 @@ $('joy-yaw').addEventListener('input', (e) => { joyYaw = +e.target.value; $('joy
 
 $('btn-arm').addEventListener('click', () => sendOnce({ cmd: 'arm' }));
 $('btn-disarm').addEventListener('click', () => sendOnce({ cmd: 'disarm' }));
-$('btn-cal').addEventListener('click', () => sendOnce({ cmd: 'calibrate' }));
+/* IMU 校正: BMI270 (陀螺零點) / BMM150 (地磁) */
+$('btn-imu').addEventListener('click', () => $('imu-cal').classList.toggle('hidden'));
+$('btn-cal-bmi270').addEventListener('click', () => {
+  $('imu-cal').dataset.sensor = 'bmi270';
+  $('imu-cal-state').textContent = 'BMI270 校正中：請保持機體靜止放平…';
+  sendOnce({ cmd: 'calibrate', sensor: 'bmi270' });
+});
+$('btn-cal-bmm150').addEventListener('click', () => {
+  $('imu-cal').dataset.sensor = 'bmm150';
+  $('imu-cal-state').textContent = 'BMM150 校正中：請在 20 秒內緩慢旋轉機體…';
+  sendOnce({ cmd: 'calibrate', sensor: 'bmm150' });
+});
 
 /* 定高 (油門保持): 鎖定飛控板當前油門, 無高度感測器 */
 function setHold(on) {

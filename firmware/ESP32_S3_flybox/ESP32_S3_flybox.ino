@@ -1,7 +1,7 @@
 /*
  * ESP32-S3 飛控板 (M5Stack AtomS3R-Ext) 韌體
  * ---------------------------------------------------------------
- * 版本 (Version): 2.3.1        (見 config.h 的 FW_VERSION)
+ * 版本 (Version): 2.3.2        (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    ESP32-S3 Flybox
  * ---------------------------------------------------------------
  * - Arduino IDE 1.8.19 / ESP32 core 2.x 或 3.x
@@ -10,8 +10,8 @@
  * - MAG: BMM150 三軸地磁, 經 BMI270 Sensor Hub 讀取, 用於姿態 yaw
  * - 姿態: 互補濾波 (陀螺 + 加速度計 + 地磁), 遙測回報 roll/pitch/yaw
  * - RS-232 (UART1, 115200 8N1) 與 WT32-ETH01 接收機交換單行 JSON
- *   命令: ping / led / arm / disarm / calibrate / nopid / throttle /
- *         hold / motors / setpoints / pid / motmin / telemetry / status
+ *   命令: ping / led / arm / disarm / calibrate (bmi270/bmm150) / nopid /
+ *         throttle / hold / motors / setpoints / pid / motmin / telemetry / status
  * - 開機預設 4 槳 Quad-X (X4), 可執行中切換 8 槳 X8 同軸
  * - 機頭方向 = USB Type-C 接口方向
  * - 各馬達最低啟動 PWM 存於 NVS, 重開機仍保留
@@ -242,8 +242,23 @@ static void handleCommand(char* s) {
   } else if (!strcmp(cmd, "calibrate")) {
     /* 校正期間機體必須靜止, 因此解鎖中不允許重新校正 */
     if (armed) { linkSendLine("{\"err\":\"armed\"}"); return; }
-    imu.calibrate(GYRO_CAL_SAMPLES);
-    ackCmd("calibrate");
+
+    char sensor[12] = "bmi270";
+    jStr(s, "sensor", sensor, sizeof sensor);
+    if (!strcmp(sensor, "bmm150")) {
+      if (!imu.magCalStart(BMM150_CAL_MS)) {
+        linkSendLine("{\"err\":\"magcal busy\"}");
+        return;
+      }
+      char b[96];
+      snprintf(b, sizeof b,
+               "{\"ack\":\"calibrate\",\"sensor\":\"bmm150\",\"state\":\"start\",\"ms\":%u}",
+               (unsigned)BMM150_CAL_MS);
+      linkSendLine(b);
+    } else {
+      imu.calibrate(GYRO_CAL_SAMPLES);
+      linkSendLine("{\"ack\":\"calibrate\",\"sensor\":\"bmi270\"}");
+    }
 
   } else if (!strcmp(cmd, "nopid")) {
     pidBypass = jInt(s, "on", 0) ? true : false;
@@ -384,6 +399,14 @@ void loop() {
     float dt = durUs * 1e-6f;
     if (dt > CTRL_MAX_DT) dt = CTRL_MAX_DT;
     controlStep(dt);
+  }
+
+  /* BMM150 校正時間到: 回報結果 (校正值已寫入 NVS) */
+  if (imu.magCalDone()) {
+    char b[80];
+    snprintf(b, sizeof b, "{\"evt\":\"magcal\",\"sensor\":\"bmm150\",\"ok\":%d}",
+             imu.magCalValid() ? 1 : 0);
+    linkSendLine(b);
   }
 
   updateLed();

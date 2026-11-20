@@ -59,10 +59,10 @@
 #define MOTOR7_PIN  3    /* RR 下槳, CW  */
 #define MOTOR8_PIN  4    /* RL 下槳, CCW */
 
-#define ESC_MIN       1000
-#define ESC_MAX       2000
-#define ESC_PWM_HZ    50
-#define ESC_PWM_BITS  16     /* 50Hz 下 16bit 解析度: 1 LSB 約 0.3us */
+#define ESC_MIN        1000
+#define ESC_MAX        2000
+#define ESC_PWM_HZ     50
+#define ESC_PWM_BITS   16     /* 50Hz 下 16bit 解析度: 1 LSB 約 0.3us */
 #define ESC_PWM_PERIOD 20000.0f
 
 /* ---------- 各馬達最低啟動 PWM (us) ----------
@@ -114,7 +114,7 @@
  * 校正方式: 見 docs/調機測試清單.md 的 "IMU 方向" 一節。
  */
 #define IMU_GYRO_ROLL_AXIS   0
-#define IMU_GYRO_ROLL_SIGN  ( 1.0f)
+#define IMU_GYRO_ROLL_SIGN   ( 1.0f)
 #define IMU_GYRO_PITCH_AXIS  1
 #define IMU_GYRO_PITCH_SIGN  ( 1.0f)
 #define IMU_GYRO_YAW_AXIS    2
@@ -131,7 +131,8 @@
 /* 地磁計機體軸 (單位 uT): 前 = -mY, 右 = +mX, 下 = +mZ */
 #define IMU_MAG_FORWARD_AXIS  1
 #define IMU_MAG_FORWARD_SIGN (-1.0f)
-#define IMU_MAG_RIGHT_AXIS    0#define IMU_MAG_RIGHT_SIGN    (-1.0f)
+#define IMU_MAG_RIGHT_AXIS    0
+#define IMU_MAG_RIGHT_SIGN   ( 1.0f)
 #define IMU_MAG_DOWN_AXIS     2
 #define IMU_MAG_DOWN_SIGN    (-1.0f)
 

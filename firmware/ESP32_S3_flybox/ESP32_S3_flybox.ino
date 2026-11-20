@@ -16,6 +16,7 @@
  * - 狀態燈: 板載 RGB + 外接 G39 LED, 由遙控器 led 命令控制
  * - 機頭方向 = USB Type-C 接口方向
  * - 各馬達最低啟動 PWM 存於 NVS, 重開機仍保留
+ * - 馬達輸出: ESP32Servo 庫 (50Hz, 1000-2000us)，簡化 PWM 控制
  * - Web 介面 (SPIFFS + mDNS + AsyncWebServer):
  *     系統狀態、WiFi 掃描/連線/清除、OTA 更新 (firmware.bin/spiffs.bin)、
  *     使用者帳密/Token/無人機 ID 設定、WebSocket 雙向即時通訊

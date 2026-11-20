@@ -62,8 +62,6 @@
 #define ESC_MIN        1000
 #define ESC_MAX        2000
 #define ESC_PWM_HZ     50
-#define ESC_PWM_BITS   16     /* 50Hz 下 16bit 解析度: 1 LSB 約 0.3us */
-#define ESC_PWM_PERIOD 20000.0f
 
 /* ---------- 各馬達最低啟動 PWM (us) ----------
  * 每顆 ESC 開始轉動的油門下限不同; 解鎖且油門高於 ESC_MIN 時,

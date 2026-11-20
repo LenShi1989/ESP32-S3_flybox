@@ -39,7 +39,7 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 │   │   ├── imu.h                      # BMI270/BMM150 讀取、零點校正、濾波、姿態融合
 │   │   ├── pid.h                      # PID (微分作用於量測值、積分限幅)
 │   │   ├── mixer.h                    # Quad-X / X8 同軸混控
-│   │   ├── motors.h                   # 8 通道 LEDC ESC 輸出
+│   │   ├── motors.h                   # 8 通道 ESC 輸出 (ESP32Servo 庫)
 │   │   ├── link.h                     # UART1 單行 JSON 收發
 │   │   ├── jsonutil.h                 # 輕量 JSON 解析
 │   │   ├── settings.h                 # NVS 設定 (WiFi、帳密、Token、無人機 ID)
@@ -86,8 +86,9 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 ## 開發環境
 
 - Arduino IDE 1.8.19
-- ESP32 Arduino core 2.x 或 3.x（**兩者都支援**，LEDC API 已做版本切換）
+- ESP32 Arduino core 2.x 或 3.x（兩者都支援，**馬達輸出使用 ESP32Servo 庫，無需手動處理 LEDC 版本差異**）
 - 函式庫：**M5Unified**（>= 0.2.17，含 BMI270 驅動）與 **M5GFX**（M5Unified 相依）
+- **ESP32Servo**（馬達 PWM 輸出）
 - 開發板選 **M5AtomS3R**；若用 ESP32 官方 core，選 **ESP32S3 Dev Module**
   並開啟 PSRAM（OPI PSRAM）；USB CDC On Boot 建議開啟
 
@@ -134,7 +135,7 @@ https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
 
 1. Arduino IDE 開啟 `firmware/ESP32_S3_flybox/ESP32_S3_flybox.ino`
 2. 工具 → 開發板 / 序列埠 設定好
-3. **需安裝函式庫**：**ESP Async WebServer** (ESP32Async)、**Async TCP** (ESP32)、**ESPmDNS** (ESP32 core 內建)
+3. **需安裝函式庫**：**ESP Async WebServer** (ESP32Async)、**Async TCP** (ESP32)、**ESPmDNS** (ESP32 core 內建)、**ESP32Servo**
 4. 驗證後上傳；USB 序列埠 115200 可看除錯訊息
 
 ## 接腳（`config.h`）
@@ -404,6 +405,7 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 ## 控制參數
 
+- 馬達 PWM 輸出：使用 **ESP32Servo 庫**（50Hz, 1000~2000us），內部採用 LEDC 硬體，支援 16 通道，程式碼簡潔且跨 core 2.x/3.x 相容。
 - 控制迴路 `CTRL_HZ = 100`，與舊 ATmega168 飛控相同，既有 PID 預設值可直接沿用。
 - PID 預設：roll/pitch `3.0 / 0.08 / 8.0`、yaw `4.0 / 0.5 / 0.0`；
   輸出限幅 100us、積分限幅 50us。

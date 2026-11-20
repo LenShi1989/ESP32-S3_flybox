@@ -201,4 +201,21 @@
 #define STATUS_LED_PIN         39
 #define STATUS_LED_ACTIVE_HIGH 1
 
+/* =============================================================
+ * Web 介面設定 (SPIFFS + mDNS + AsyncWebServer)
+ * -------------------------------------------------------------
+ * 功能:
+ *   - SPIFFS 網頁介面 (ESPAsyncWebServer) + WebSocket 即時雙向
+ *   - WiFi 站台 + SoftAP 同時運作
+ *   - mDNS: http://flybox.local/ 連線 (不必知道 IP)
+ *   - WiFi 掃描/設定/清除 / OTA 更新 / 使用者帳密設定
+ * ============================================================= */
+#define WEB_PORT            80
+#define AP_SSID_PREFIX      "Flybox-"
+#define AP_PASS             "12345678"
+#define MDNS_HOST           "flybox"
+#define SESSION_MAX         8
+#define DEF_USER            "admin"
+#define DEF_PASS            "admin"
+
 #endif

@@ -4,10 +4,11 @@
   Default output (each sketch gets its own build folder):
       firmware\WT32_ETH01_receiver\build\spiffs.bin
       firmware\ESP32_D1_mini_rc\build\spiffs.bin        (-All)
+      firmware\ESP32_S3_flybox\build\spiffs.bin        (-Flybox)
 
   Partition size:
       -Size auto (default)  read the "spiffs" row from <sketch>\partitions.csv,
-                            else from the newest <sketch>uild\*\partitions.csv
+                            else from the newest <sketch>\build\*\partitions.csv
                             (the table the sketch was actually compiled with).
                             There is no fallback: pass -Size if neither exists.
       Also accepts 0x20000, 131072, 128k, 1M.
@@ -15,6 +16,7 @@
   Usage:
       tools\spiffs.bat                       # receiver only
       tools\spiffs.bat -All                  # receiver + RC
+      tools\spiffs.bat -Flybox               # ESP32-S3 flybox
       tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data
       tools\spiffs.bat -Size 0x100000 -Out C:\tmp\spiffs.bin
       tools\spiffs.bat -Mkspiffs "C:\path\to\mkspiffs.exe"
@@ -25,7 +27,8 @@ param(
   [string]$Out,
   [string]$Size = 'auto',
   [string]$Mkspiffs,
-  [switch]$All
+  [switch]$All,
+  [switch]$Flybox
 )
 
 $ErrorActionPreference = 'Stop'
@@ -110,11 +113,14 @@ if (-not $exe) {
   Fail "mkspiffs.exe not found. Install the ESP32 core in Arduino IDE, or pass -Mkspiffs <path> / set MKSPIFFS."
 }
 if ($All -and ($Data -or $Out)) { Fail "-All cannot be combined with -Data or -Out" }
+if ($Flybox -and ($Data -or $Out)) { Fail "-Flybox cannot be combined with -Data or -Out" }
 
 $jobs = @()
 if ($All) {
   $jobs += [pscustomobject]@{ Name = 'WT32_ETH01_receiver'; Data = (Join-Path $repo 'firmware\WT32_ETH01_receiver\data') }
   $jobs += [pscustomobject]@{ Name = 'ESP32_D1_mini_rc';    Data = (Join-Path $repo 'firmware\ESP32_D1_mini_rc\data') }
+} elseif ($Flybox) {
+  $jobs += [pscustomobject]@{ Name = 'ESP32_S3_flybox'; Data = (Join-Path $repo 'firmware\ESP32_S3_flybox\data') }
 } else {
   if (-not $Data) { $Data = 'firmware\WT32_ETH01_receiver\data' }
   $Data = Resolve-RepoPath $Data

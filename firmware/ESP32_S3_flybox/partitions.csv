@@ -1,0 +1,10 @@
+# Name,   Type, SubType, Offset,  Size, Flags
+# ESP32-S3 8MB Flash: APP 2MB x2, SPIFFS 3MB
+# 放在 sketch 資料夾內, Arduino 建置與 tools\spiffs.bat 都會用這一張表,
+# 保證 OTA 上傳的 spiffs.bin 大小與板上 SPIFFS 分割區一致。
+nvs,      data, nvs,     0x9000,  0x5000,
+otadata,  data, ota,     0xE000,  0x2000,
+app0,     app,  ota_0,   0x10000, 0x200000,
+app1,     app,  ota_1,   0x210000,0x200000,
+spiffs,   data, spiffs,  0x410000,0x300000,
+coredump, data, coredump,0x710000,0xF0000,

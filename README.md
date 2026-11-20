@@ -34,14 +34,18 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 │   └── 雷射測距感測器模組/            # LRFX0M20KHS datasheet
 ├── firmware/
 │   ├── ESP32_S3_flybox/               # 飛控板
-│   │   ├── ESP32_S3_flybox.ino        # 主程式：控制迴路、命令解析、遙測
-│   │   ├── config.h                   # 腳位、PID、ESC、濾波等所有設定
+│   │   ├── ESP32_S3_flybox.ino        # 主程式：控制迴路、命令解析、遙測、Web 伺服器
+│   │   ├── config.h                   # 腳位、PID、ESC、濾波、Web 等所有設定
 │   │   ├── imu.h                      # BMI270/BMM150 讀取、零點校正、濾波、姿態融合
 │   │   ├── pid.h                      # PID (微分作用於量測值、積分限幅)
 │   │   ├── mixer.h                    # Quad-X / X8 同軸混控
 │   │   ├── motors.h                   # 8 通道 LEDC ESC 輸出
 │   │   ├── link.h                     # UART1 單行 JSON 收發
-│   │   └── jsonutil.h                 # 輕量 JSON 解析
+│   │   ├── jsonutil.h                 # 輕量 JSON 解析
+│   │   ├── settings.h                 # NVS 設定 (WiFi、帳密、Token、無人機 ID)
+│   │   ├── web.h                      # 網頁路由、WebSocket、OTA、API
+│   │   ├── partitions.csv             # ESP32-S3 8MB Flash 分割表 (3MB SPIFFS)
+│   │   └── data/                      # SPIFFS 網頁 (index.html / app.js / style.css)
 │   ├── WT32_ETH01_receiver/           # 接收機
 │   │   ├── WT32_ETH01_receiver.ino    # 接收機主程式 (RJ45 + WiFi + WebSocket 橋接)
 │   │   ├── config.h                   # 網路 / UART / 帳密設定
@@ -130,7 +134,8 @@ https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
 
 1. Arduino IDE 開啟 `firmware/ESP32_S3_flybox/ESP32_S3_flybox.ino`
 2. 工具 → 開發板 / 序列埠 設定好
-3. 驗證後上傳；USB 序列埠 115200 可看除錯訊息
+3. **需安裝函式庫**：**ESP Async WebServer** (ESP32Async)、**Async TCP** (ESP32)、**ESPmDNS** (ESP32 core 內建)
+4. 驗證後上傳；USB 序列埠 115200 可看除錯訊息
 
 ## 接腳（`config.h`）
 
@@ -215,6 +220,54 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 - 超過 `FAILSAFE_MS`（2000ms）沒收到任何命令會自動上鎖並送出 `failsafe`。
 - 解鎖後 LED 快閃（綠），未解鎖慢閃（藍）；G39 外接狀態燈與板載 RGB 同步。
 
+---
+
+## 飛控板網頁介面 (ESP32-S3 Flybox)
+
+`firmware/ESP32_S3_flybox/` 自 v2.3.3 起內建獨立網頁介面，**可直接連線飛控板進行設定與監控**，不需經過接收機：
+
+### 功能
+- **系統狀態**：韌體版本、運作時間、可用記憶體、WiFi 連線資訊 (SSID/IP/RSSI)、SoftAP 狀態、SPIFFS 檔案目錄與容量、RS232 通訊狀態
+- **WiFi 設定**：掃描附近 SSID、手動輸入 SSID/密碼、清除連線設定 (重開機生效)
+- **OTA 更新**：上傳 `firmware.bin` (韌體) 或 `spiffs.bin` (網頁檔映像)，完成自動重開機
+- **使用者設定**：變更登入帳號密碼、設定無人機 ID (0~255)、檢視/複製裝置連結 Token
+
+### 連線方式
+1. **SoftAP (預設)**：開機自動啟動 `Flybox-XXXX` (MAC 後四碼)，密碼 `12345678`  
+   連線後開啟 `http://192.168.4.1/` 或 `http://flybox.local/` (mDNS)
+2. **WiFi STA**：在「WiFi 設定」頁掃描並連線路由器，連線成功後飛控板會重開機，之後可用路由器分派的 IP 或 mDNS 連線
+
+### 預設帳密
+- `admin` / `admin` (可在 `config.h` 的 `DEF_USER` / `DEF_PASS` 修改，或網頁登入後變更)
+
+### API 端點
+| 端點 | 方法 | 說明 |
+|------|------|------|
+| `/api/status` | GET | 系統狀態 (JSON) |
+| `/api/fs` | GET | SPIFFS 檔案列表與容量 |
+| `/api/scan` | GET | WiFi 掃描結果 |
+| `/api/wifi` | POST | 連線/清除 WiFi (`ssid`/`pass` 或 `action=clear`) |
+| `/api/user` | GET/POST | 讀取/變更帳號密碼/Token |
+| `/api/id` | GET/POST | 讀取/設定無人機 ID |
+| `/api/command` | POST | 轉送單行 JSON 給飛控主迴路 (如 `{"cmd":"status"}`) |
+| `/api/ota/firmware` | POST | 韌體 OTA 上傳 (multipart/form-data, `file`) |
+| `/api/ota/spiffs` | POST | SPIFFS 映像 OTA 上傳 |
+| `/ws` | WS | WebSocket (即時雙向，同接收機協定) |
+
+### WebSocket 協定
+- 連線：`ws://<IP>/ws?token=<deviceToken>` 或攜帶登入 cookie
+- 送出：單行 JSON 字串，直接透過 RS-232 轉送飛控主迴路
+- 收到：飛控回傳的遙測/ack/evt/err 等 JSON
+
+### 使用方式
+1. 先編譯一次專案 (產生分割表)
+2. 執行 `tools\spiffs.bat -Flybox` 產生 `firmware\ESP32_S3_flybox\build\spiffs.bin`
+3. 燒錄韌體，再透過網頁「OTA 更新」上傳 `spiffs.bin`
+4. 瀏覽器開啟 `http://flybox.local/` 或 IP 位址
+5. 登入後即可進行 WiFi 設定、OTA、帳號管理等操作
+
+---
+
 ## 接收機（WT32-ETH01）
 
 `firmware/WT32_ETH01_receiver/` 是飛控與遙控器之間的橋接：
@@ -271,8 +324,9 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 | 目標 | 指令 | 輸出 |
 | ---- | ---- | ---- |
-| 兩塊板子 | `tools\spiffs.bat -All` | 下列兩個檔案 |
+| 三塊板子 | `tools\spiffs.bat -All` | 下列三個檔案 |
 | 接收機 | `tools\spiffs.bat` | `firmware\WT32_ETH01_receiver\build\spiffs.bin` |
+| 飛控板 | `tools\spiffs.bat -Flybox` | `firmware\ESP32_S3_flybox\build\spiffs.bin` |
 | 遙控器 | `tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data` | `firmware\ESP32_D1_mini_rc\build\spiffs.bin` |
 
 上傳方式：板子網頁 →「OTA 更新」→ 選檔 → 上傳（顯示百分比進度），完成後自動重開機。
@@ -295,6 +349,10 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
   OTA 只會更新 APP／SPIFFS 內容，不會搬動分割表
 - 映像會整塊覆蓋 SPIFFS：上傳中斷會使網頁檔損毀（開機自動格式化 → 網頁空白），
   此時請改用 USB 重新上傳；`firmware.bin` 中斷則不影響現有版本
+
+> **ESP32-S3 飛控板分割表 (8MB Flash)**：`firmware/ESP32_S3_flybox/partitions.csv` 為
+> APP 2MB × 2、SPIFFS 3MB (0x410000, 0x300000)、coredump 0xF0000。
+> Arduino 建置時會優先使用此表，不受 IDE「Partition Scheme」影響。
 
 ## 遙控器（ESP32 D1 mini RC）
 

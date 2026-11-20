@@ -11,6 +11,10 @@ rem      tools\spiffs.bat -All
 rem      -> firmware\WT32_ETH01_receiver\build\spiffs.bin
 rem      -> firmware\ESP32_D1_mini_rc\build\spiffs.bin
 rem
+rem  ESP32-S3 Flybox:
+rem      tools\spiffs.bat -Flybox
+rem      -> firmware\ESP32_S3_flybox\build\spiffs.bin
+rem
 rem  Other options:
 rem      tools\spiffs.bat -Data firmware\ESP32_D1_mini_rc\data
 rem      tools\spiffs.bat -Size 0x100000 -Out C:\tmp\spiffs.bin

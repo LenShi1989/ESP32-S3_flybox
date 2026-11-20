@@ -44,4 +44,9 @@ static inline void linkSendLine(const char* s) {
   Serial1.print('\n');
 }
 
+/* 送出字串 (不自動換行), 用於 WebSocket 轉送命令 */
+static inline void linkSend(const String& s) {
+  Serial1.print(s);
+}
+
 #endif

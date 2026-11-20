@@ -16,6 +16,10 @@
  * - 狀態燈: 板載 RGB + 外接 G39 LED, 由遙控器 led 命令控制
  * - 機頭方向 = USB Type-C 接口方向
  * - 各馬達最低啟動 PWM 存於 NVS, 重開機仍保留
+ * - Web 介面 (SPIFFS + mDNS + AsyncWebServer):
+ *     系統狀態、WiFi 掃描/連線/清除、OTA 更新 (firmware.bin/spiffs.bin)、
+ *     使用者帳密/Token/無人機 ID 設定、WebSocket 雙向即時通訊
+ * - WiFi: SoftAP (flybox.local) + STA 同時運作
  *
  * 安全: 超過 FAILSAFE_MS 沒收到命令會自動上鎖; IMU 無回應時拒絕解鎖。
  * 序列命令請見 README.md。所有命令以 '\n' 結尾。
@@ -25,6 +29,9 @@
 #include <math.h>
 #include <M5Unified.h>
 #include <Preferences.h>
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <ESPmDNS.h>
 #include "config.h"
 #include "jsonutil.h"
 #include "pid.h"
@@ -32,6 +39,8 @@
 #include "imu.h"
 #include "motors.h"
 #include "link.h"
+#include "settings.h"
+#include "web.h"
 
 Imu  imu;
 PID  pidRoll, pidPitch, pidYaw;
@@ -374,6 +383,18 @@ void setup() {
   Serial.printf("[RS232] UART1 %d 8N1 TX=G%d RX=G%d\n",
                 RS232_BAUD, RS232_TX_PIN, RS232_RX_PIN);
 
+  /* ---- WiFi 初始化 ---- */
+  settingsLoad();
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(apSsid().c_str(), AP_PASS);
+  Serial.printf("[WiFi] SoftAP 啟動: %s\n", apSsid().c_str());
+  if (gSet.ssid.length() > 0) {
+    WiFi.begin(gSet.ssid.c_str(), gSet.wpass.c_str());
+    Serial.printf("[WiFi] 連線中: %s\n", gSet.ssid.c_str());
+  } else {
+    Serial.println("[WiFi] 未設定 SSID, 僅 SoftAP 模式");
+  }
+
   motorMinLoad();
   motorsInit();
   motorsApplyCount(MOTOR_COUNT);
@@ -402,6 +423,9 @@ void setup() {
   }
   Serial.printf("[IMU] 地磁 BMM150 (BMI270 Sensor Hub): %s\n",
                 imu.magOk() ? "就緒" : "無資料");
+
+  /* ---- Web 伺服器啟動 ---- */
+  webSetup();
 
   lastCtrlUs = micros();
   lastCmdMs  = millis();
@@ -435,4 +459,5 @@ void loop() {
 
   updateLed();
   sendTelemetry();
+  webLoop();
 }

@@ -48,6 +48,7 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 │   │   ├── kkbox.h                    # 飛控 UART 橋接 (Serial2, 115200)
 │   │   ├── settings.h                 # NVS 設定、無人機 ID
 │   │   ├── web.h                      # 網頁路由、WebSocket、OTA
+│   │   ├── partitions.csv             # min_spiffs 分割表 (OTA / spiffs.bat 共用)
 │   │   └── data/                      # SPIFFS 網頁 (index.html / app.js / style.css)
 │   └── ESP32_D1_mini_rc/              # 遙控器
 │       ├── ESP32_D1_mini_rc.ino       # 遙控器主程式 (WiFi WebSocket 用戶端)
@@ -58,7 +59,8 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 │       ├── link.h                     # 與接收機的 WebSocket 連線、送命令
 │       ├── telem.h                    # 遙測解析
 │       ├── web.h                      # 網頁路由、PID / 模擬搖桿 / 馬達校正 / OTA API
-│       ├── mdns.h                     # 輕量 mDNS (flybox-rc.local)，節省 flash 空間
+│       ├── partitions.csv             # min_spiffs 分割表 (OTA / spiffs.bat 共用)
+│       ├── rc_mdns.h                  # mDNS (flybox-rc.local)：ESPmDNS，取得 IP 後才啟動
 │       └── data/                      # SPIFFS 網頁 (index.html / app.js / style.css / config.json)
 ├── test/
 │   └── led/led.ino                    # LED 測試草稿
@@ -239,6 +241,7 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 - 預設帳密 `admin` / `admin`（`config.h` 的 `DEF_USER` / `DEF_PASS`，登入後可改）
 - SoftAP：`Flybox-Receiver-XXXX`（XXXX = MAC 後四碼），密碼 `12345678`
 - 網頁：`http://<接收機 IP>/`，或區網 mDNS `http://flybox-receiver.local/`
+  （接收機是 `flybox-receiver.local`，遙控器才是 `flybox-rc.local`，兩者不要搞混）
 - WebSocket：`/ws`（需 `?token=` 或登入 cookie）
 - 遙控器用的裝置 token 在「使用者設定」頁可重新產生
 - 常用 API：`/api/status`、`/api/telemetry`、`/api/id`、`/api/command`（POST 單行 JSON 轉送飛控）、
@@ -266,12 +269,20 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 腳本特性：
 
-- `-Size auto`（預設）會讀 `<sketch>\partitions.csv`，否則讀 ESP32 core 的
-  `default.csv` 取得 SPIFFS 分割區大小；都找不到時用 `0x160000`（1.5MB）
+- `-Size auto`（預設）先讀 `<sketch>\partitions.csv`，沒有就讀該 sketch 上次編譯留下的
+  `<sketch>\build\<fqbn>\partitions.csv`（板子實際使用的分割表）；
+  兩者都沒有時直接報錯，請先編譯一次或改用 `-Size`
 - 自動尋找 Arduino ESP32 core 內附的 `mkspiffs.exe`；找不到時可用
   `-Mkspiffs <路徑>`，或設定環境變數 `MKSPIFFS`
-- 產生後印出檔案大小、資料使用率與 SHA256，方便核對上傳的映像
+- 產生後印出映像大小、分割區大小、資料使用率、SHA256 與 USB 燒錄位移，
+  方便核對上傳的映像
 - `spiffs.bin`、`build/`、`*.ino.*.bin` 已列入 `.gitignore`
+- `spiffs.bin` 必須與 SPIFFS 分割區一樣大。兩個 sketch 資料夾都放了 `partitions.csv`
+  （`min_spiffs`：APP 1.95MB × 2、SPIFFS 128KB、位移 `0x3D0000`），Arduino 建置時
+  會優先用它，所以不再受 IDE「Partition Scheme」選項影響；映像大於分割區時，網頁會
+  回報「映像大於分割區」並拒絕寫入，不會寫壞現有網頁檔
+- 換分割表（含第一次改用本版 `partitions.csv`）一定要用 USB 重新燒錄一次：
+  OTA 只會更新 APP／SPIFFS 內容，不會搬動分割表
 - 映像會整塊覆蓋 SPIFFS：上傳中斷會使網頁檔損毀（開機自動格式化 → 網頁空白），
   此時請改用 USB 重新上傳；`firmware.bin` 中斷則不影響現有版本
 
@@ -317,8 +328,9 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
    密碼 `12345678`），帳密 `admin` / `admin`
 5. 先在網頁「網路設定」填入接收機 IP / token，之後才會建立 WebSocket 連線
 
-> Flash 使用率約 98%（1.29MB / 1.31MB）；移除 ElegantOTA、mDNS 改輕量實作（僅回應 A 記錄）
-> 後騰出空間，再加功能前建議先換分割區配置。
+> 分割表用 `min_spiffs`（APP 1.95MB × 2、SPIFFS 128KB，位移 `0x3D0000`）：
+> 韌體約 1.35MB（68%）、網頁檔約 63KB（49%）。OTA 上傳的 `spiffs.bin` 必須是
+> 131072 bytes（由 `tools\spiffs.bat` 依實際分割表產生）。
 
 ## 控制參數
 
@@ -375,3 +387,18 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 遙控器 2.3.1 起開機時會印出 `[SYS] 重置原因: ...`；若連續 3 次異常開機
 （PANIC / WDT），會自動清除 NVS 的 `phy` 命名空間並重新校正，避免卡在開機當機。
+
+### `http://flybox-rc.local/` 或 `http://flybox-receiver.local/` 打不開
+
+mDNS 依賴用戶端的解析器，先確認是同一個區網，並改用 IP（`192.168.10.1`、
+接收機取得的 IP）交叉測試，即可分辨是 mDNS 還是網路問題。
+
+- 遙控器的 mDNS 由 `rc_mdns.h` 使用 ESP32 core 內建的 ESPmDNS：等 SoftAP 或 STA
+  取得 IP 後才啟動（失敗每 5 秒重試），AP+STA 共存時兩個介面都會加入群組，
+  所以從 `Flybox-RC-XXXX` 連進來也解析得到。檔名不叫 `mdns.h`，是為了避免
+  蓋掉 ESP-IDF 的同名標頭、讓 `ESPmDNS.h` 編譯失敗。
+- 接收機用 ESPmDNS，開機後等 RJ45／WiFi 取得 IP 才啟動，失敗每 5 秒重試；
+  序列埠會印出 `[mDNS] http://flybox-receiver.local/ (ETH … / STA … / AP …)`。
+- 名稱不同：遙控器是 `flybox-rc.local`，接收機是 `flybox-receiver.local`。
+- 少數系統（舊版 Windows、部分 Android 瀏覽器）不支援 `.local` 解析，
+  請直接使用 IP。

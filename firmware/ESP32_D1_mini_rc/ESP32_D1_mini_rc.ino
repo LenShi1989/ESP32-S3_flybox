@@ -42,7 +42,7 @@ static AsyncWebSocket localWs("/ws");
 #include "display.h"
 #include "link.h"
 #include "web.h"
-#include "mdns.h"
+#include "rc_mdns.h"
 
 static uint32_t lastOled  = 0;
 static uint32_t lastInput = 0;
@@ -202,9 +202,8 @@ void setup() {
     Serial.printf("[WiFi] connecting to %s ...\n", gSet.ssid.c_str());
   }
 
-  /* ---------- mDNS (輕量: 只回應 A 記錄) ---------- */
-  if (mdnsBegin()) Serial.printf("[mDNS] http://%s.local/\n", MDNS_HOST);
-  else             Serial.println("[mDNS] 啟動失敗 (UDP 5353)");
+  /* ---------- mDNS (ESPmDNS: 區網用 http://flybox-rc.local/) ---------- */
+  if (!mdnsBegin()) Serial.println("[mDNS] 尚未取得 IP, 取得後自動啟動");
 
   webSetup();
   if (gSet.rxHost.length()) linkBegin();

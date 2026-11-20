@@ -25,6 +25,33 @@
 #include "kkbox.h"
 #include "web.h"
 
+/* ---------- mDNS ----------
+ * 等介面 (RJ45 / WiFi STA / SoftAP) 取得 IP 後才啟動, 失敗每 5 秒重試:
+ * 若在 ETH 尚未取得 IP 前 MDNS.begin() 就失敗, 原本程式不會再重試,
+ * 之後就完全無法用 flybox-receiver.local 連線。
+ */
+static bool     gMdnsOk      = false;
+static uint32_t gMdnsRetryAt = 0;
+
+static void mdnsStart() {
+  if (gMdnsOk || millis() < gMdnsRetryAt) return;
+  if (ETH.localIP() == IPAddress(0, 0, 0, 0) &&
+      WiFi.localIP() == IPAddress(0, 0, 0, 0) &&
+      WiFi.softAPIP() == IPAddress(0, 0, 0, 0)) return;
+
+  gMdnsRetryAt = millis() + 5000;
+  if (MDNS.begin(MDNS_HOST)) {
+    MDNS.addService("http", "tcp", WEB_PORT);
+    gMdnsOk = true;
+    Serial.printf("[mDNS] http://%s.local/ (ETH %s / STA %s / AP %s)\n", MDNS_HOST,
+                  ETH.localIP().toString().c_str(),
+                  WiFi.localIP().toString().c_str(),
+                  WiFi.softAPIP().toString().c_str());
+  } else {
+    Serial.println("[mDNS] 啟動失敗, 5 秒後重試");
+  }
+}
+
 void setup() {
   /* 停用電壓不足偵測 (BOD): 避免 WiFi/RJ45(PHY) 瞬間電流造成 brownout reset */
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
@@ -72,14 +99,6 @@ void setup() {
     Serial.printf("[WiFi] connecting to %s ...\n", gSet.ssid.c_str());
   }
 
-  /* ---------- mDNS ---------- */
-  if (MDNS.begin(MDNS_HOST)) {
-    MDNS.addService("http", "tcp", WEB_PORT);
-    Serial.printf("[mDNS] http://%s.local/\n", MDNS_HOST);
-  } else {
-    Serial.println("[mDNS] 啟動失敗");
-  }
-
   /* ---------- 飛控板 UART & 網頁 ---------- */
   kkBegin();
   webSetup();
@@ -103,6 +122,8 @@ void loop() {
     /* t/ack/evt 以外 (如 err) 也一併廣播, 供 RS232 串口通訊頁即時顯示 RX */
     ws.textAll(line);
   }
+
+  mdnsStart();
 
   /* WiFi 斷線自動重連 (SoftAP 持續運作, 僅重連 STA) */
   static uint32_t lastWifiTry = 0;

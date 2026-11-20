@@ -6,6 +6,7 @@
 #include <ETH.h>
 #include <SPIFFS.h>
 #include <Update.h>
+#include <esp_ota_ops.h>
 #include <ESPAsyncWebServer.h>
 #include "config.h"
 #include "settings.h"
@@ -173,40 +174,98 @@ static bool   gOtaAuth  = false;
 static bool   gOtaOk    = false;
 static bool   gOtaFail  = false;
 static size_t gOtaBytes = 0;
+static String gOtaErr;            /* 失敗原因 (回報網頁與序列埠) */
+
+/* 找出 spiffs 分割區, 寫入前先確認容量 */
+static const esp_partition_t* otaSpiffsPart() {
+  return esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, NULL);
+}
+
+/* 失敗收尾: 停止 Update 並重新掛載 SPIFFS
+ * (否則 Update 會卡在 running 狀態, 之後每次上傳都失敗,
+ *  而且網頁檔案也因為 SPIFFS 已卸載而全部 404) */
+static void otaFail(const char* why) {
+  if (!gOtaFail) Serial.printf("[OTA] 失敗: %s (已寫入 %u bytes)\n", why, (unsigned)gOtaBytes);
+  gOtaFail = true;
+  gOtaErr  = why;
+  if (Update.isRunning()) Update.abort();
+  if (gOtaKind == 2) SPIFFS.begin(false);
+}
 
 static void otaChunk(AsyncWebServerRequest* r, int kind, String filename,
                      size_t index, uint8_t* data, size_t len, bool final) {
   if (!index) {
-    gOtaKind = kind; gOtaOk = false; gOtaFail = false; gOtaBytes = 0;
+    gOtaKind = kind; gOtaOk = false; gOtaFail = false; gOtaBytes = 0; gOtaErr = "";
     gOtaAuth = isAuthed(r);
-    if (!gOtaAuth) return;
-    Serial.printf("[OTA] %s upload start: %s\n",
-                  kind == 1 ? "firmware" : "spiffs", filename.c_str());
+    if (!gOtaAuth) { gOtaErr = "unauthorized"; return; }
+
+    /* 先比對上傳大小與分割區。例如分割區只有 128KB 卻上傳 1.5MB 的
+     * spiffs.bin, 以前會寫到一半才失敗並弄壞網頁檔, 現在直接拒絕。 */
+    const esp_partition_t* part = (kind == 1)
+      ? esp_ota_get_next_update_partition(NULL) : otaSpiffsPart();
+    if (!part) { otaFail(kind == 1 ? "找不到 OTA 分割區" : "找不到 spiffs 分割區"); return; }
+    size_t clen = r->contentLength();
+    if (clen && clen > part->size + 1024) {
+      Serial.printf("[OTA] 拒絕上傳: %u bytes 超過分割區 %u bytes\n",
+                    (unsigned)clen, (unsigned)part->size);
+      otaFail("映像大於分割區, 請用 tools/spiffs.bat 重新產生");
+      return;
+    }
+
+    Serial.printf("[OTA] %s upload start: %s (分割區 %u bytes)\n",
+                  kind == 1 ? "firmware" : "spiffs", filename.c_str(),
+                  (unsigned)part->size);
     if (kind == 2) SPIFFS.end();                 /* 寫入前必須卸載 */
     if (!Update.begin(UPDATE_SIZE_UNKNOWN, kind == 1 ? U_FLASH : U_SPIFFS)) {
-      gOtaFail = true; Update.printError(Serial); return;
+      String e = Update.errorString();
+      Serial.printf("[OTA] begin 失敗: %s\n", e.c_str());
+      otaFail(e.c_str());
+      return;
     }
   }
   if (!gOtaAuth || gOtaFail || gOtaKind != kind || !Update.isRunning()) return;
-  if (Update.write(data, len) != len) {
-    gOtaFail = true; Update.printError(Serial); return;
+  /* 空的尾段不要送進 Update.write(): ESP32 core 3.x 在資料剛好填滿分割區時,
+   * write(0) 會再呼叫一次 _writeBuffer(), 對分割區結尾做 erase 而越界失敗,
+   * Update.end() 便回報 Flash Erase Failed。spiffs.bin 固定 131072 bytes
+   * (4096 的整數倍), 每次上傳都會踩到; 略過空段即可, end() 會自行收尾。 */
+  if (len && Update.write(data, len) != len) {
+    String e = Update.errorString();
+    Serial.printf("[OTA] 寫入失敗 (offset %u): %s\n", (unsigned)gOtaBytes, e.c_str());
+    otaFail(e.c_str());
+    return;
   }
   gOtaBytes += len;
   if (final) {
-    if (!gOtaFail && Update.end(true)) {
+    if (Update.end(true)) {
       gOtaOk = true;
       Serial.printf("[OTA] %s ok: %u bytes\n",
                     kind == 1 ? "firmware" : "spiffs", (unsigned)gOtaBytes);
+      if (kind == 2) {
+        /* 重新掛載新映像; 掛不起來代表映像本身有問題, 不用格式化掩蓋 */
+        if (SPIFFS.begin(false)) {
+          Serial.println("[OTA] 新 spiffs 映像已掛載");
+        } else {
+          gOtaOk = false; gOtaErr = "新 spiffs 映像無法掛載";
+          Serial.println("[OTA] 新 spiffs 映像掛載失敗");
+        }
+      }
     } else {
-      Update.printError(Serial);
-      if (kind == 2) SPIFFS.begin(true);          /* 失敗時先救回網頁檔 */
+      String e = Update.errorString();
+      Serial.printf("[OTA] end 失敗: %s\n", e.c_str());
+      otaFail(e.c_str());
     }
   }
 }
 
 static void otaDone(AsyncWebServerRequest* r, int kind) {
   if (!gOtaAuth) { sendErr(r, "unauthorized", 401); return; }
-  if (!gOtaOk || gOtaKind != kind) { sendErr(r, "ota failed", 500); return; }
+  if (!gOtaOk || gOtaKind != kind) {
+    String body = "{\"ok\":false,\"err\":\"ota failed\"";
+    if (gOtaErr.length()) body += ",\"reason\":\"" + jsonEscape(gOtaErr) + "\"";
+    body += "}";
+    sendJson(r, body, 500);
+    return;
+  }
   sendJson(r, String("{\"ok\":true,\"bytes\":") + (unsigned)gOtaBytes +
               ",\"md5\":\"" + Update.md5String() + "\"}");
   gRebootAt = millis() + 1500;   /* 等回應送完再重開 */

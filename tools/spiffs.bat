@@ -17,7 +17,9 @@ rem      tools\spiffs.bat -Size 0x100000 -Out C:\tmp\spiffs.bin
 rem      tools\spiffs.bat -Mkspiffs "C:\path\to\mkspiffs.exe"
 rem
 rem  Needs the ESP32 Arduino core (bundles mkspiffs.exe).
-rem  Partition size is auto-detected (partitions.csv / core default.csv).
+rem  Partition size follows the table the sketch was actually built with
+rem  (<sketch>\partitions.csv or <sketch>\build\*\partitions.csv), so
+rem  build the sketch once before running this.
 rem ---------------------------------------------------------------
 setlocal
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0make_spiffs.ps1" %*

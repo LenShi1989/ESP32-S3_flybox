@@ -110,11 +110,16 @@
  *   yaw   繞 +Z: 機頭向右 (由上往下看順時針) 為正
  * 若實機轉動方向相反, 只改對應的 SIGN, 不必改 PID 或混控。
  * 校正方式: 見 docs/調機測試清單.md 的 "IMU 方向" 一節。
+ * 
+ * 修正記錄:
+ * - Roll 上下顛倒: IMU_GYRO_ROLL_SIGN 由 +1 改為 -1
+ * - Pitch 方向相反: IMU_GYRO_PITCH_SIGN 由 +1 改為 -1
+ * - 加速度計對應修正: Right/Down 符號對應陀螺儀
  */
 #define IMU_GYRO_ROLL_AXIS   0
-#define IMU_GYRO_ROLL_SIGN   ( 1.0f)
+#define IMU_GYRO_ROLL_SIGN   (-1.0f)
 #define IMU_GYRO_PITCH_AXIS  1
-#define IMU_GYRO_PITCH_SIGN  ( 1.0f)
+#define IMU_GYRO_PITCH_SIGN  (-1.0f)
 #define IMU_GYRO_YAW_AXIS    2
 #define IMU_GYRO_YAW_SIGN    ( 1.0f)
 
@@ -122,9 +127,9 @@
 #define IMU_ACC_FORWARD_AXIS  0
 #define IMU_ACC_FORWARD_SIGN ( 1.0f)
 #define IMU_ACC_RIGHT_AXIS    1
-#define IMU_ACC_RIGHT_SIGN   ( 1.0f)
+#define IMU_ACC_RIGHT_SIGN   (-1.0f)
 #define IMU_ACC_DOWN_AXIS     2
-#define IMU_ACC_DOWN_SIGN    ( 1.0f)
+#define IMU_ACC_DOWN_SIGN    (-1.0f)
 
 /* 地磁計機體軸 (單位 uT): 前 = -mY, 右 = +mX, 下 = +mZ */
 #define IMU_MAG_FORWARD_AXIS  1

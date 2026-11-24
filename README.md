@@ -6,6 +6,7 @@
 
 ```
 ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
+                                             (GPS x2 + 雷射測距)
                                                      │
                                              RS-232 115200 8N1
                                                      │
@@ -18,6 +19,7 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 - 飛控板以 PID (三軸 rate) 讀 BMI270 陀螺儀做自主平衡。
 - 機頭方向 = USB Type-C 接口方向；開機預設 4 槳 Quad-X (X4)。
 - BMI270 加速度計 + 陀螺儀做六軸互補濾波姿態，BMM150 地磁 (經 BMI270 Sensor Hub) 修正 yaw。
+- 接收機另接兩顆 GPS 與一顆雷射測距，資料不經飛控，由接收機網頁側欄即時顯示（`/api/sensors`）。
 - 命令與遙測都是**單行 JSON**，以 `\n` 結尾，格式與接收機、遙控器既有協定相同。
 - 接收機把飛控送出的每一行原樣廣播給 WebSocket 用戶端，新增欄位只要網頁端解析，橋接程式不必改動。
 
@@ -50,6 +52,7 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 │   │   ├── WT32_ETH01_receiver.ino    # 接收機主程式 (RJ45 + WiFi + WebSocket 橋接)
 │   │   ├── config.h                   # 網路 / UART / 帳密設定
 │   │   ├── kkbox.h                    # 飛控 UART 橋接 (Serial2, 115200)
+│   │   ├── sensors.h                  # 雙 GPS (NMEA 0183) 與雷射測距讀取、/api/sensors
 │   │   ├── settings.h                 # NVS 設定、無人機 ID
 │   │   ├── web.h                      # 網頁路由、WebSocket、OTA
 │   │   ├── partitions.csv             # min_spiffs 分割表 (OTA / spiffs.bat 共用)
@@ -75,13 +78,19 @@ ESP32 D1 mini 遙控器 ──2.4G WiFi/WebSocket──> WT32-ETH01 接收機
 
 ## 軟體版本
 
-三塊板子共用同一版號，各板 `config.h` 的 `FW_VERSION` 必須一致；網頁「系統狀態」會顯示此值。
+飛控板與接收機共用同一版號，各板 `config.h` 的 `FW_VERSION` 應保持一致；網頁「系統狀態」會顯示此值。
+遙控器目前維持 `2.3.3`（本次只修正未校正搖桿的行程對應，協定未變）。
 
 | 韌體   | 目錄                            | `FW_VERSION` |
 | ------ | ------------------------------- | ------------ |
-| 飛控板 | `firmware/ESP32_S3_flybox/`     | `2.3.3`      |
-| 接收機 | `firmware/WT32_ETH01_receiver/` | `2.3.3`      |
+| 飛控板 | `firmware/ESP32_S3_flybox/`     | `2.4.0`      |
+| 接收機 | `firmware/WT32_ETH01_receiver/` | `2.4.0`      |
 | 遙控器 | `firmware/ESP32_D1_mini_rc/`    | `2.3.3`      |
+
+### v2.4.0 重點
+
+- 飛控板開機自動做 ESC 行程校正（2000us 兩秒 → 1000us），見 `ESC_CAL_*`。
+- 接收機新增雙 GPS 與雷射測距，網頁側欄顯示 GPS 定位與地面高度。
 
 ## 開發環境
 
@@ -201,7 +210,7 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 ```
 {"ack":"arm"}
-{"evt":"ready","fw":"ESP32-S3 Flybox","ver":"2.3.3"}
+{"evt":"ready","fw":"ESP32-S3 Flybox","ver":"2.4.0"}
 {"evt":"failsafe"}
 {"err":"bad cmd"}
 {"t":12345,"armed":1,"mcount":4,"hold":0,"magok":1,
@@ -282,6 +291,9 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 - RJ45 (LAN8720A) 有線網路 + WiFi STA + SoftAP 可同時運作。
 - 網頁（SPIFFS）顯示飛控遙測：**三軸即時角度長條圖**、**BMI270 六軸姿態 (Roll/Pitch/Yaw + 加速度計)**、
   **BMM150 三軸地磁與磁方位**、馬達輸出、解鎖狀態。
+- **外接感測器**：兩顆 GPS（NMEA 0183，115200）與一顆雷射測距（115200），
+  側欄「GPS 定位資訊」（經緯度 6 位小數、衛星數、定位狀態）與「地面高度資訊」
+  （對地高度、GPS 海拔）每秒更新；原始資料為 `GET /api/sensors`。
 - **無人機 ID 設定**（0–255，存 NVS），顯示於飛行狀態頁；`GET/POST /api/id`。
 - 飛控送出的每一行 JSON 原樣經 WebSocket 廣播，遙控器與網頁看到的是同一份資料。
 - 網頁另含網路設定、馬達模式、使用者帳密、SPIFFS 檔案瀏覽與 OTA。
@@ -296,6 +308,21 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 115200 8N1，交叉對接；若中間走真正的 RS-232 準位，兩端都要加收發器（如 MAX3232）。
 接收機的 G16 是 PHY 電源，不可他用。
+
+### 接線（外接感測器）
+
+| 感測器                | 模組 TX | 接收機 RX              | Baud   |
+| --------------------- | ------- | ---------------------- | ------ |
+| GPS1（YIC GT-504GGB） | TX      | IO36（SoftwareSerial） | 115200 |
+| GPS2（YIC GT-504GGB） | TX      | IO35（SoftwareSerial） | 115200 |
+| 雷射（LRFX0M20KHS）   | TX      | IO39（UART1）          | 115200 |
+
+- 三支腳都只當 RX（SoftwareSerial 送出腳設 -1、UART1 不送），選 IO35/36/39 是
+  WT32-ETH01 的輸入腳，不佔用其他 IO；請與模組共地。
+- GPIO 與 baud 都在 `config.h`：`SENSOR_ENABLE`、`GPS1_RX_PIN`/`GPS2_RX_PIN`/`GPS_BAUD`、
+  `LASER_RX_PIN`/`LASER_BAUD`；不接感測器時把 `SENSOR_ENABLE` 設 0。
+- 雷射模組出廠是 460800：先送 `5A 06 02 80 04 73` 改成 115200，或把 `LASER_BAUD` 改 460800。
+  若模組實際是 8 bytes/frame（資料表兩種寫法並存），改 `LASER_FRAME_LEN=8`、`LASER_DIST_LO=3`。
 
 ### 建置 / 上傳
 
@@ -314,7 +341,8 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
   （接收機是 `flybox-receiver.local`，遙控器才是 `flybox-rc.local`，兩者不要搞混）
 - WebSocket：`/ws`（需 `?token=` 或登入 cookie）
 - 遙控器用的裝置 token 在「使用者設定」頁可重新產生
-- 常用 API：`/api/status`、`/api/telemetry`、`/api/id`、`/api/command`（POST 單行 JSON 轉送飛控）、
+- 常用 API：`/api/status`、`/api/telemetry`、`/api/sensors`（GPS 與雷射原始資料）、
+  `/api/id`、`/api/command`（POST 單行 JSON 轉送飛控）、
   `/api/ota/firmware`、`/api/ota/spiffs`（POST `firmware.bin` / `spiffs.bin`，需登入）
 
 ### OTA 更新（韌體 / 網頁檔）
@@ -372,6 +400,9 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 - **PID 參數校正**：網頁「PID 設定」頁，roll / pitch / yaw 各自 Kp / Ki / Kd，
   下傳 `{"cmd":"pid","axis":...}`。
 - **PWM 馬達最低啟動數值設定**：網頁「馬達校正」頁，M1–M8 各自設定並下傳 `motmin`。
+- **未校正搖桿的行程對應**：Pitch/Roll 在尚未做搖桿校正時，以開機讀值為中心、
+  依實際推過的行程換算；推過 `AUTO_SPAN_MIN`（200 counts）就採用實際值，推到機械端點
+  即為滿刻度，回中必定為 0。若搖桿行程明顯不對稱，還是做一次完整校正最準。
 - 另有硬體遙控（四軸搖桿 ADC1 + SW1~SW4 + VRC1 旋鈕）、SSD1306 OLED 4 頁顯示、
   ESC 行程校正（`nopid`）與 OTA。
 
@@ -412,6 +443,10 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 ## 控制參數
 
 - 馬達 PWM 輸出：使用 **ESP32Servo 庫**（50Hz, 1000~2000us），內部採用 LEDC 硬體，支援 16 通道，程式碼簡潔且跨 core 2.x/3.x 相容。
+- 開機 ESC 行程校正：`motorsInit()` 後由 `motorsEscCalibrate()` 對所有馬達輸出
+  `ESC_CAL_HIGH_US`(2000us) 維持 `ESC_CAL_TIME_MS`(2s)，再降至 `ESC_MIN`(1000us)
+  並等 `ESC_CAL_LOW_MS` 完成初始化；`ESC_CAL_ENABLE=0` 時開機直接輸出 `ESC_MIN`。
+  這是 ESC 自己的行程學習，與遙控器網頁「馬達校正」的 `motmin`（最低啟動 PWM）不同。
 - 控制迴路 `CTRL_HZ = 100`，與舊 ATmega168 飛控相同，既有 PID 預設值可直接沿用。
 - PID 預設：roll/pitch `3.0 / 0.08 / 8.0`、yaw `4.0 / 0.5 / 0.0`；
   輸出限幅 100us、積分限幅 50us。
@@ -436,8 +471,11 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 ## 安全提醒
 
 - 首次測試請拆槳；確認馬達序號、轉向與混控方向正確再裝槳。
+- 飛控開機即做 ESC 行程校正：所有馬達輸出 2000us 兩秒後降到 1000us
+  （`ESC_CAL_ENABLE` / `ESC_CAL_TIME_MS`），這段期間馬達會全油門，務必先拆槳。
 - `arm` 後油門即時生效，請先把機體固定好。
-- ESC 行程校正（`nopid`）期間不套用最低啟動 PWM，可回到 1000us。
+- 由遙控器觸發的 ESC 行程校正（`nopid`）期間不套用最低啟動 PWM，可回到 1000us；
+  與開機自動校正（`ESC_CAL_*`）是兩回事。
 
 ## 疑難排解
 

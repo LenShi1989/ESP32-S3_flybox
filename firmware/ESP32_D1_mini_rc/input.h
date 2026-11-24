@@ -145,7 +145,15 @@ static inline void spanUpdate(AxisSpan& s, int raw) {
   if (raw > s.hi) s.hi = raw;
 }
 
-/* 有效行程: 已校正 -> 校正值中點; 未校正 -> 開機讀值當中心, 依觀測極值往外擴張 */
+/* 有效行程: 已校正 -> 校正值中點; 未校正 -> 開機讀值當中心,
+ * 依「實際推過的行程」分左右各自往外擴張。
+ *
+ * 舊版把左右半行程的下限釘在 AUTO_SPAN_HALF (1200 counts): 若搖桿
+ * 實際行程不到 1200 counts (廉價搖桿很常見), 推到底也只有
+ * 行程/1200 的比例, Pitch/Roll 就會「推很多但數值幾乎不變」。
+ * 現在只要推過的行程超過 AUTO_SPAN_MIN 就採用實際值, 推到機械端點
+ * 一定得到滿刻度 (STICK_RANGE); 中心仍固定在開機讀值, 所以放開
+ * 搖桿回中時輸出必定為 0, 不會因為行程不對稱而一直偏一邊。 */
 static inline void stickWindow(const AxisSpan& s, int cmin, int cmax,
                               float& center, float& loHalf, float& hiHalf) {
   if (gSet.calValid) {
@@ -154,16 +162,15 @@ static inline void stickWindow(const AxisSpan& s, int cmin, int cmax,
     hiHalf = cmax - center;
     return;
   }
-  if (!s.init) {
-    center = (DEF_ADC_MIN + DEF_ADC_MAX) * 0.5f;
-    loHalf = hiHalf = AUTO_SPAN_HALF;
-    return;
-  }
-  center = s.ref;
-  loHalf = s.ref - s.lo;
-  hiHalf = s.hi - s.ref;
-  if (loHalf < AUTO_SPAN_HALF) loHalf = AUTO_SPAN_HALF;
-  if (hiHalf < AUTO_SPAN_HALF) hiHalf = AUTO_SPAN_HALF;
+  center = (DEF_ADC_MIN + DEF_ADC_MAX) * 0.5f;
+  loHalf = hiHalf = AUTO_SPAN_HALF;
+  if (!s.init) return;
+
+  const float up   = (float)(s.hi - s.ref);   /* 往高 ADC 方向推過的行程 */
+  const float down = (float)(s.ref - s.lo);   /* 往低 ADC 方向推過的行程 */
+  center = (float)s.ref;
+  if (up   >= AUTO_SPAN_MIN) hiHalf = up;
+  if (down >= AUTO_SPAN_MIN) loHalf = down;
 }
 
 /* ---------- VRC1: 4 段頁面 (含遲滯) ---------- */

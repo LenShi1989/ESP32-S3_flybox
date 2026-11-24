@@ -106,6 +106,10 @@
 #define DEF_ADC_MAX 3200
 /* 尚未校正的軸: 以開機第一次讀值為中央, 至少給這個半行程 (±) */
 #define AUTO_SPAN_HALF ((DEF_ADC_MAX - DEF_ADC_MIN) / 2)
+/* 尚未校正的軸: 實際推過的行程要超過這個值才採用 (ADC counts)。
+ * 小於此值視為「還沒推到底 / 雜訊」, 先沿用 AUTO_SPAN_HALF,
+ * 避免把雜訊放大成大幅度的命令。 */
+#define AUTO_SPAN_MIN  200
 
 /* KKBOX motor[] 順序固定為 M1..M8：M1=FL(CCW), M2=FR(CW),
  * M3=RR(CCW), M4=RL(CW); M5..M8 為各位置 X8 下槳。 */

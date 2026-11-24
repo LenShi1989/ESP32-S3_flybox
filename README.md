@@ -329,6 +329,8 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 1. 開發板選 **WT32-ETH01**（ESP32 core 的 `wt32-eth01`）
 2. 函式庫：**ESP Async WebServer**（ESP32Async）、**Async TCP**；
    OTA 由韌體自行實作（`/api/ota/firmware`、`/api/ota/spiffs`），不需 ElegantOTA
+   **另需安裝 ESPSoftwareSerial**（工具 → 管理庫 → 搜尋 ESPSoftwareSerial 安裝，
+   否則 `#include <SoftwareSerial.h>` 編譯會失敗）
 3. 先上傳程式，再把 `data/` 以 SPIFFS 映像方式上傳（Arduino IDE 需安裝
    ESP32 Sketch Data Upload 外掛，或使用 `mklittlefs` / `arduino-cli uploadfs`）
 4. 序列埠 115200 可看開機與網路訊息

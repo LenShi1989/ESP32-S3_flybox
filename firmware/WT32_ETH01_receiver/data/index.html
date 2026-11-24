@@ -30,30 +30,16 @@
       <a data-page="status"  class="active">系統狀態</a>
       <a data-page="network">網路設定</a>
       <div class="nav-group">
-        <div class="nav-label">KKBOX 飛控管理</div>
+        <div class="nav-label">飛控管理</div>
         <a data-page="motors">馬達設定</a>
         <a data-page="flight">飛行狀態</a>
         <a data-page="serial">RS232 串口通訊</a>
       </div>
+
+      <a data-page="sensors">Sensor管理</a>
       <a data-page="ota">OTA 更新</a>
       <a data-page="user">使用者設定</a>
     </nav>
-
-    <!-- 側欄: 外接感測器即時資訊 (GPS x2 + 雷射測距) -->
-    <div class="side-info">
-      <div class="side-card">
-        <div class="side-title">GPS 定位資訊</div>
-        <div class="side-row"><span>緯度</span><b id="sd-lat">--</b></div>
-        <div class="side-row"><span>經度</span><b id="sd-lon">--</b></div>
-        <div class="side-row"><span>狀態</span><b id="sd-gps">-</b></div>
-      </div>
-      <div class="side-card">
-        <div class="side-title">地面高度資訊</div>
-        <div class="side-row"><span>對地高度</span><b id="sd-agl">--</b></div>
-        <div class="side-row"><span>海拔高度</span><b id="sd-alt">--</b></div>
-        <div class="side-row"><span>狀態</span><b id="sd-height">-</b></div>
-      </div>
-    </div>
 
     <button id="logout" class="ghost">登出</button>
   </aside>
@@ -132,6 +118,24 @@
         <div class="row"><span class="k">容量</span><span id="fs-usage">-</span></div>
         <div class="bar"><div id="fs-bar"></div></div>
         <table class="tbl" id="fs-files"><thead><tr><th>檔案</th><th>大小</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <!-- Sensor管理 -->
+    <section id="page-sensors" class="page">
+      <h2>Sensor管理</h2>
+      <div class="grid sensor-grid">
+        <div class="card">
+          <div class="k">GPS定位</div>
+          <div class="srow"><span class="k">經度</span><span class="sv" id="sd-lon">--</span></div>
+          <div class="srow"><span class="k">緯度</span><span class="sv" id="sd-lat">--</span></div>
+          <div class="srow"><span class="k">狀態</span><span class="sv" id="sd-gps">-</span></div>
+        </div>
+        <div class="card">
+          <div class="k">雷射測高</div>
+          <div class="srow"><span class="k">無人機離地高度</span><span class="sv" id="sd-agl">--</span></div>
+          <div class="srow"><span class="k">狀態</span><span class="sv" id="sd-height">-</span></div>
+        </div>
       </div>
     </section>
 

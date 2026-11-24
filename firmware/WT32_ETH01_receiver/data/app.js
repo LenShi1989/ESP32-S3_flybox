@@ -110,6 +110,7 @@ $('nav').addEventListener('click', (e) => {
   document.querySelectorAll('#nav a').forEach(x => x.classList.toggle('active', x === a));
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + a.dataset.page));
   if (a.dataset.page === 'network') loadNet();
+  if (a.dataset.page === 'sensors') loadSensors();
   if (a.dataset.page === 'motors') { motorsTouched = false; mminLoad(); }
   if (a.dataset.page === 'user') loadUser();
 });
@@ -477,9 +478,7 @@ async function loadSensors() {
 
   const lz = s.laser || {};
   setVal('sd-agl', lz.ok ? Number(lz.m).toFixed(2) + ' m' : '--', lz.ok ? 'var(--fg)' : 'var(--muted)');
-  setVal('sd-alt', (g && g.valid) ? Number(g.alt).toFixed(1) + ' m' : '--',
-         (g && g.valid) ? 'var(--fg)' : 'var(--muted)');
-  setVal('sd-height', lz.ok ? '雷射正常' : '雷射無資料', lz.ok ? 'var(--ok)' : 'var(--muted)');
+  setVal('sd-height', lz.ok ? '正常' : '無資料', lz.ok ? 'var(--ok)' : 'var(--muted)');
 }
 
 /* ---------- WebSocket ---------- */

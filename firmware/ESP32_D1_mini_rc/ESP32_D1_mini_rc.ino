@@ -12,7 +12,8 @@
  * - 網頁介面: 系統狀態 / 網路設定 / PID / 模擬搖桿 / 硬體遙控 /
  *             馬達校正 / OTA / 使用者設定
  * ---------------------------------------------------------------
- * 開機流程 (沿用測試碼):
+ * 開機流程:
+ *   0) 通電即啟動 SoftAP (不等 1~2), 網頁立刻可用
  *   1) 轉 VRC1 選無人機 ID -> 按下 SW1 確認
  *   2) 按住 SW1 期間持續校正搖桿, 放開 SW1 結束
  *   3) 按住 SW2 開機 = 跳過上述流程 (沿用已存的 ID/校正值)
@@ -107,6 +108,17 @@ static void bootHealthCheck() {
 /* =============================================================
  * 開機流程: 無人機 ID 選擇 + 搖桿校正
  * ============================================================= */
+
+/* 開機流程是阻塞式的, 但前一步已經開了 SoftAP: 網頁觸發的重開機
+ * (例如剛上傳完 OTA) 要在這裡處理, 不然流程沒跑完就不會重啟。 */
+static void bootService() {
+  if (gRebootAt && millis() > gRebootAt) {
+    Serial.println("[SYS] 重新啟動...");
+    delay(50);
+    ESP.restart();
+  }
+}
+
 static void bootFlow() {
   /* --- 1) 轉 VRC1 選無人機 ID, SW1 = ON 確認 --- */
   Serial.println("[BOOT] 轉 VRC1 選擇無人機 ID, 按 SW1 確認");
@@ -115,6 +127,7 @@ static void bootFlow() {
     uint8_t id = (uint8_t)constrain(map((long)raw, 0, 4095, 0, 255), 0, 255);
     gSet.flyId = id;
     oledBootFlyId(id, raw);
+    bootService();
     if (digitalRead(PIN_SW1) == LOW) break;
     delay(80);
   }
@@ -127,6 +140,7 @@ static void bootFlow() {
     inputRead();
     inputCalSample();
     oledBootCal();
+    bootService();
     delay(20);
   }
   bool ok = inputCalFinish();
@@ -144,6 +158,43 @@ static void bootFlow() {
 
   settingsSaveIds();
   Serial.printf("[BOOT] 完成: FlyID=%u cal=%s\n", gSet.flyId, ok ? "OK" : "FAIL");
+}
+
+/* =============================================================
+ * 網路啟動: 通電後立刻開 SoftAP, 不等 ID / 搖桿校正流程
+ * -------------------------------------------------------------
+ * AP 先起來, 所以網頁 (http://192.168.10.1) 在選 ID 與校正期間就開得起來;
+ * 若 /config.json 有 STA 設定, 再另外連路由器 (AP + STA 共存)。
+ * AP 與 STA 分開啟動, 避免兩次射頻啟動的電流峰值疊在一起。
+ * ============================================================= */
+static void netBegin() {
+  /* 設定都存在 SPIFFS, 關閉 WiFi 自身寫 NVS: 迴圈每 10 秒重連一次,
+   * 若每次都寫 NVS 會加速磨損, 也會和 PHY 校正資料搶 NVS 空間。 */
+  WiFi.persistent(false);
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.setHostname(MDNS_HOST);
+  {
+    IPAddress apIp, apMask;
+    apIp.fromString(AP_IP_ADDR);
+    apMask.fromString("255.255.255.0");
+    WiFi.softAPConfig(apIp, apIp, apMask);
+    String ap = apSsid();
+    WiFi.softAP(ap.c_str(), AP_PASS);
+    Serial.printf("[AP] %s -> %s\n", ap.c_str(), WiFi.softAPIP().toString().c_str());
+  }
+  delay(100);
+  if (gSet.ssid.length()) {
+    WiFi.begin(gSet.ssid.c_str(), gSet.wpass.c_str());
+    Serial.printf("[WiFi] connecting to %s ...\n", gSet.ssid.c_str());
+  }
+
+  /* ---------- mDNS (ESPmDNS: 區網用 http://flybox-rc.local/) ---------- */
+  if (!mdnsBegin()) Serial.println("[mDNS] 尚未取得 IP, 取得後自動啟動");
+
+  webSetup();
+  Serial.println("[WEB] 伺服器已啟動 (port 80)");
+  if (gSet.rxHost.length()) linkBegin();
+  else Serial.println("[LINK] 尚未設定接收機, 請由網頁設定");
 }
 
 /* =============================================================
@@ -168,6 +219,9 @@ void setup() {
   settingsLoad();
   oledBegin();
 
+  /* ---------- 通電即開 SoftAP: 選 ID / 校正期間網頁就能連 ---------- */
+  netBegin();
+
   delay(30);
   /* --- 3) 按住 SW2 開機 = 跳過 ID/校正流程 --- */
   bool skip = (digitalRead(PIN_SW2) == LOW);
@@ -180,37 +234,7 @@ void setup() {
     bootFlow();
   }
 
-  /* ---------- WiFi: STA + AP 共存 (僅 2.4GHz) ---------- */
-  /* 設定都存在 SPIFFS, 關閉 WiFi 自身寫 NVS: 迴圈每 10 秒重連一次,
-   * 若每次都寫 NVS 會加速磨損, 也會和 PHY 校正資料搶 NVS 空間。 */
-  WiFi.persistent(false);
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.setHostname(MDNS_HOST);
-  {
-    IPAddress apIp, apMask;
-    apIp.fromString(AP_IP_ADDR);
-    apMask.fromString("255.255.255.0");
-    WiFi.softAPConfig(apIp, apIp, apMask);
-    String ap = apSsid();
-    WiFi.softAP(ap.c_str(), AP_PASS);
-    Serial.printf("[AP] %s -> %s\n", ap.c_str(), WiFi.softAPIP().toString().c_str());
-  }
-  /* AP 與 STA 分開啟動, 避免兩次射頻啟動的電流峰值疊在一起 */
-  delay(100);
-  if (gSet.ssid.length()) {
-    WiFi.begin(gSet.ssid.c_str(), gSet.wpass.c_str());
-    Serial.printf("[WiFi] connecting to %s ...\n", gSet.ssid.c_str());
-  }
-
-  /* ---------- mDNS (ESPmDNS: 區網用 http://flybox-rc.local/) ---------- */
-  if (!mdnsBegin()) Serial.println("[mDNS] 尚未取得 IP, 取得後自動啟動");
-
-  webSetup();
-  if (gSet.rxHost.length()) linkBegin();
-  else Serial.println("[LINK] 尚未設定接收機, 請由網頁設定");
-
   if (gOledOk) { oled.clearDisplay(); oled.display(); }
-  Serial.println("[WEB] 伺服器已啟動 (port 80)");
   Serial.printf("[INPUT] 校正=%s, 控制來源=%s, FlyID=%u\n",
                 gSet.calValid ? "OK" : "未校正",
                 inputSourceName(gSet.ctrlSource), gSet.flyId);

@@ -136,6 +136,15 @@
           <div class="srow"><span class="k">無人機離地高度</span><span class="sv" id="sd-agl">--</span></div>
           <div class="srow"><span class="k">狀態</span><span class="sv" id="sd-height">-</span></div>
         </div>
+        <div class="card">
+          <div class="k">BMI270 校正</div>
+          <p class="muted small">每次開機自動校正（機體靜止放平），Roll / Pitch 數值歸零；解鎖中不可手動校正。</p>
+          <div class="row card-actions">
+            <button type="button" id="btn-cal-imu" class="ghost">校正 BMI270</button>
+            <button type="button" id="btn-cal-level-clear" class="ghost">清除歸零</button>
+          </div>
+          <p class="muted small" id="imu-cal-state">-</p>
+        </div>
       </div>
     </section>
 

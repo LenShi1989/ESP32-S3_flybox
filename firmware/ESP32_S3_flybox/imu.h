@@ -47,13 +47,15 @@ private:
  */
 class Imu {
 public:
-  Imu() : _ok(false), _magOk(false), _attInit(false), _lastUs(0),
+  Imu() : _ok(false), _magOk(false), _attInit(false), _levelValid(false), _lastUs(0),
           _magCalActive(false), _magCalDone(false), _magCalValid(false),
           _magCalStartMs(0), _magCalMs(0), _magCalSamples(0) {
     _o[0] = _o[1] = _o[2] = 0.0f;
     _f[0] = _f[1] = _f[2] = 0.0f;
     _rate = { 0.0f, 0.0f, 0.0f };
     _att  = { 0.0f, 0.0f, 0.0f };
+    _attOut = { 0.0f, 0.0f, 0.0f };
+    _attOff[0] = _attOff[1] = 0.0f;
     _acc  = { 0.0f, 0.0f, 0.0f };
     _mag  = { 0.0f, 0.0f, 0.0f };
     _magRaw = { 0.0f, 0.0f, 0.0f };
@@ -67,6 +69,7 @@ public:
 
   bool begin() {
     magCalLoad();
+    levelLoad();
     _ok = M5.Imu.isEnabled();
     return _ok;
   }
@@ -140,6 +143,7 @@ public:
     _f[0] = _f[1] = _f[2] = 0.0f;
     _rate = { 0.0f, 0.0f, 0.0f };
     _att  = { 0.0f, 0.0f, 0.0f };
+    _attOut = _att;
     _acc  = { 0.0f, 0.0f, 0.0f };
     _mag  = { 0.0f, 0.0f, 0.0f };
     _magRaw = { 0.0f, 0.0f, 0.0f };
@@ -149,6 +153,27 @@ public:
     _attInit = false;
     _lastUs  = 0;
   }
+
+  /* 以目前姿態作為 Roll / Pitch 零點 (機體必須靜止放平), 並存入 NVS。
+   * 校正後 attitude() 的 roll / pitch 即為 0, 內部姿態積分狀態不變。 */
+  void calibrateLevel() {
+    _attOff[0] = _att.roll;
+    _attOff[1] = _att.pitch;
+    levelSave();
+    applyLevelOffset();
+  }
+
+  /* 清除 Roll / Pitch 歸零校正 (NVS) */
+  void levelClear() {
+    _attOff[0] = _attOff[1] = 0.0f;
+    levelSave();
+    applyLevelOffset();
+  }
+
+  bool levelValid() const { return _levelValid; }
+
+  /* 姿態是否已由加速度計 / 地磁計完成初始化 */
+  bool attReady() const { return _attInit; }
 
   /* 有新資料時更新濾波與姿態; 回傳目前濾波後的機體角速度 */
   GyroData update() {
@@ -208,11 +233,32 @@ public:
   }
 
   const GyroData& rates()    const { return _rate; }
-  const Attitude& attitude() const { return _att; }
+  const Attitude& attitude() const { return _attOut; }
   const Axis3&    accel()    const { return _acc; }
   const Axis3&    mag()      const { return _mag; }
 
 private:
+  /* ---------- Roll / Pitch 歸零校正 (NVS) ---------- */
+  void levelLoad() {
+    Preferences p;
+    if (!p.begin("flybox", true)) return;
+    if (p.isKey("lvlo") && p.isKey("lvlp")) {
+      _attOff[0] = p.getFloat("lvlo", 0.0f);
+      _attOff[1] = p.getFloat("lvlp", 0.0f);
+      _levelValid = true;
+    }
+    p.end();
+  }
+
+  void levelSave() {
+    Preferences p;
+    if (!p.begin("flybox", false)) return;
+    p.putFloat("lvlo", _attOff[0]);
+    p.putFloat("lvlp", _attOff[1]);
+    p.end();
+    _levelValid = true;
+  }
+
   /* ---------- BMM150 校正資料 (NVS) ---------- */
   void magCalLoad() {
     Preferences p;
@@ -332,6 +378,7 @@ private:
       _att.pitch = pitchAcc;
       _att.yaw   = _magOk ? headingFromMag() : 0.0f;
       _attInit = true;
+      applyLevelOffset();
       return;
     }
 
@@ -355,6 +402,15 @@ private:
       const float target = wrap360(MAG_HEADING_SIGN * headingFromMag());
       _att.yaw = wrap360(_att.yaw + k * wrap180(target - _att.yaw));
     }
+
+    applyLevelOffset();
+  }
+
+  /* 把 Roll / Pitch 歸零校正量套用到輸出姿態 (不影響內部積分狀態) */
+  void applyLevelOffset() {
+    _attOut.roll  = wrap180(_att.roll  - _attOff[0]);
+    _attOut.pitch = wrap180(_att.pitch - _attOff[1]);
+    _attOut.yaw   = _att.yaw;
   }
 
   bool  _ok;
@@ -365,6 +421,9 @@ private:
   uint32_t _lastUs;
   GyroData _rate;
   Attitude _att;
+  Attitude _attOut;    /* 套用 Roll/Pitch 歸零校正後的輸出姿態 */
+  float    _attOff[2]; /* Roll / Pitch 零點偏移 (deg) */
+  bool     _levelValid;
   Axis3    _acc;
   Axis3    _mag;
   Axis3    _magRaw;   /* 未補償地磁 (機體座標) */

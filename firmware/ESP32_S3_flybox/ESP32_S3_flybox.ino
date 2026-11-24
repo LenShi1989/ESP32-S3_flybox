@@ -276,13 +276,24 @@ static void handleCommand(char* s) {
                "{\"ack\":\"calibrate\",\"sensor\":\"bmm150\",\"state\":\"start\",\"ms\":%u}",
                (unsigned)BMM150_CAL_MS);
       linkSendLine(b);
+    } else if (!strcmp(sensor, "level")) {
+      /* 清除 Roll / Pitch 歸零校正 */
+      imu.levelClear();
+      linkSendLine("{\"ack\":\"calibrate\",\"sensor\":\"level\"}");
     } else if (!strcmp(sensor, "clear")) {
       /* 清除 BMM150 校正資料 (NVS) */
       imu.magCalClear();
       linkSendLine("{\"ack\":\"calibrate\",\"sensor\":\"clear\"}");
     } else {
+      /* 先以目前姿態作為 Roll/Pitch 零點 (機體靜止放平), 再量陀螺零點。
+       * calibrate() 會把姿態歸零, 因此順序不可顛倒。 */
+      imu.calibrateLevel();
       imu.calibrate(GYRO_CAL_SAMPLES);
-      linkSendLine("{\"ack\":\"calibrate\",\"sensor\":\"bmi270\"}");
+      char b[96];
+      snprintf(b, sizeof b,
+               "{\"ack\":\"calibrate\",\"sensor\":\"bmi270\",\"roll\":%d,\"pitch\":%d}",
+               (int)lroundf(imu.attitude().roll), (int)lroundf(imu.attitude().pitch));
+      linkSendLine(b);
     }
 
   } else if (!strcmp(cmd, "nopid")) {
@@ -422,8 +433,20 @@ void setup() {
   pidPitch.setIntegralLimit(PID_I_LIMIT);
   pidYaw.setIntegralLimit(PID_I_LIMIT);
 
-  /* 開機校正: 機體必須靜止放平 */
+  /* 開機校正: 機體必須靜止放平 (陀螺零點 + Roll/Pitch 歸零) */
   imu.calibrate(GYRO_CAL_SAMPLES);
+  /* 等姿態初始化 (以加速度計為準), 再以目前姿態作為 Roll/Pitch 零點 */
+  for (uint8_t i = 0; i < 30 && !imu.attReady(); i++) {
+    imu.update();
+    delay(10);
+  }
+  if (imu.attReady()) {
+    imu.calibrateLevel();
+    Serial.printf("[IMU] 開機校正: Roll/Pitch 歸零 (att %+.1f / %+.1f)\n",
+                  imu.attitude().roll, imu.attitude().pitch);
+  } else {
+    Serial.println("[IMU] 開機校正: 姿態尚未就緒, 沿用 NVS 歸零值");
+  }
   /* 等 BMM150 第一筆有效資料 (最多約 200ms), 以便開機訊息與初始 yaw */
   for (uint8_t i = 0; i < 20 && !imu.magOk(); i++) {
     imu.update();

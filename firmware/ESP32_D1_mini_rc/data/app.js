@@ -196,7 +196,12 @@ function connectWs() {
       if (m.gyro) applyTelemetry(m);
       else if (m.mmin) { showMmin(m.mmin); if (m.ack) onAck(m.ack, 'ws'); }
       else if (m.ack) onAck(m.ack, 'ws');
-      else if (m.err) onLinkErr(m.err);
+      else if (m.err) {
+        const st = $('imu-cal-state');
+        if (st && $('imu-cal') && !$('imu-cal').classList.contains('hidden'))
+          st.textContent = '校正失敗：' + m.err;
+        onLinkErr(m.err);
+      }
       else if (m.evt === 'magcal') {
         const ok = !!m.ok, st = $('imu-cal-state');
         if (st) st.textContent = ok ? 'BMM150 校正完成，已儲存於飛控'
@@ -236,7 +241,7 @@ function onAck(cmd, src) {
   if (cmd === 'calibrate') {
     const cal = $('imu-cal'), stateEl = $('imu-cal-state');
     if (cal && stateEl) {
-      if (cal.dataset.sensor === 'bmi270') stateEl.textContent = 'BMI270 校正完成';
+      if (cal.dataset.sensor === 'bmi270') stateEl.textContent = 'BMI270 校正完成：Roll / Pitch 已歸零';
       else if (cal.dataset.sensor === 'bmm150') stateEl.textContent = 'BMM150 校正進行中…';
     }
   }

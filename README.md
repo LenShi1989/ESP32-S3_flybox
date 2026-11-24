@@ -200,8 +200,9 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 | pid       | `{"cmd":"pid","axis":"roll","kp":3,"ki":0.08,"kd":8}` | 線上調 PID                              |
 | motmin    | `{"cmd":"motmin","index":1,"value":1050}`             | 最低啟動 PWM（index 0=全部，存 NVS）    |
 | nopid     | `{"cmd":"nopid","on":1}`                              | ESC 行程校正：略過 PID                  |
-| calibrate | `{"cmd":"calibrate","sensor":"bmi270"}`               | BMI270 陀螺零點校正（解鎖中拒絕）       |
+| calibrate | `{"cmd":"calibrate","sensor":"bmi270"}`               | BMI270 陀螺零點 + Roll/Pitch 歸零（解鎖中拒絕） |
 | calibrate | `{"cmd":"calibrate","sensor":"bmm150"}`               | BMM150 地磁校正：20 秒內旋轉機體        |
+| calibrate | `{"cmd":"calibrate","sensor":"level"}`                | 清除 Roll/Pitch 歸零校正（存 NVS）      |
 | telemetry | `{"cmd":"telemetry","value":200}`                     | 遙測週期 ms（0=關閉）                   |
 | status    | `{"cmd":"status"}`                                    | 回報版本、油門、PID 以外的設定          |
 | led       | `{"cmd":"led","mode":"blink"}`                        | 板載 RGB + G39 狀態燈：on / off / blink |
@@ -223,6 +224,11 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 
 - 遙測欄位：`gyro` 為 deg/s；`att` 為度 (yaw 0~360)；`acc` 為 mg；`mag` 為 0.1µT；
   `magok` 表示 BMM150 是否有效。
+- 每次開機都會自動執行 BMI270 校正（陀螺零點 + 以開機時的姿態作為 Roll/Pitch 零點），
+  因此常溫靜置開機後 `att.roll` / `att.pitch` 即為 0；開機時機體必須靜止放平。
+- BMI270 校正（`sensor:"bmi270"`）會量陀螺零點並以當前姿態作為 Roll/Pitch 零點，
+  回 `{"ack":"calibrate","sensor":"bmi270","roll":0,"pitch":0}`；校正值存於 NVS，
+  重開機仍保留（機體靜止放平後校正，解鎖中回 `{"err":"armed"}`）。
 - BMM150 校正開始會回 `{"ack":"calibrate","sensor":"bmm150","state":"start","ms":20000}`，
   時間到再送 `{"evt":"magcal","sensor":"bmm150","ok":1}`；校正值存於 NVS，重開機仍保留。
   若 `ok` 為 0 表示旋轉幅度不足，會保留舊校正值。

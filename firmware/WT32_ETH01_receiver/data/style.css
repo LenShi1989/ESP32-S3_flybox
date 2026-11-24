@@ -121,6 +121,7 @@ body.nav-open .hamburger span:nth-child(3){transform:translateY(-6px) rotate(-45
 .card .row{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
 .card .row>*{min-width:0}
 .card .row.card-actions{justify-content:flex-start}
+.card .row .ghost{margin:0}
 .sensor-grid{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .srow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
 .card .k + .srow{border-top:none;padding-top:2px}

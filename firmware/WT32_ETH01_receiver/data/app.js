@@ -481,6 +481,26 @@ async function loadSensors() {
   setVal('sd-height', lz.ok ? '正常' : '無資料', lz.ok ? 'var(--ok)' : 'var(--muted)');
 }
 
+/* ---------- BMI270 校正 (Roll / Pitch 歸零) ---------- */
+function calState(txt, color) {
+  const el = $('imu-cal-state');
+  if (!el) return;
+  el.textContent = txt;
+  el.style.color = color || 'var(--muted)';
+}
+async function sendCal(obj, busy) {
+  calState(busy, 'var(--warn)');
+  try {
+    await api('/api/command', { method: 'POST', body: { cmd: JSON.stringify(obj) } });
+  } catch (e) {
+    calState('送出失敗: ' + e.message, 'var(--err)');
+  }
+}
+$('btn-cal-imu').addEventListener('click', () =>
+  sendCal({ cmd: 'calibrate', sensor: 'bmi270' }, '校正中：請保持機體靜止放平…'));
+$('btn-cal-level-clear').addEventListener('click', () =>
+  sendCal({ cmd: 'calibrate', sensor: 'level' }, '清除中…'));
+
 /* ---------- WebSocket ---------- */
 function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -498,6 +518,13 @@ function connectWs() {
         mminPending--;
         if (mminPending === 0) $('mmin-state').textContent = '飛控已確認 8 顆設定';
       }
+      else if (m.ack === 'calibrate') {
+        if (m.sensor === 'bmi270')
+          calState('BMI270 校正完成：Roll / Pitch 已歸零' +
+                   (m.roll === undefined ? '' : '（' + m.roll + ' / ' + m.pitch + '）'), 'var(--ok)');
+        else if (m.sensor === 'level') calState('已清除 Roll / Pitch 歸零校正', 'var(--ok)');
+      }
+      else if (m.err) calState('校正失敗：' + m.err, 'var(--err)');
     } catch (e) {
       serLog('rx', ev.data);
     }

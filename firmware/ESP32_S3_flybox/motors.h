@@ -43,6 +43,29 @@ static inline void escWriteUs(uint8_t i, float us) {
   motorServos[i].writeMicroseconds((int)us);
 }
 
+/* 對所有啟用中的馬達輸出同一個 PWM (ESC 行程校正用) */
+static inline void escWriteAllUs(float us) {
+  for (uint8_t i = 0; i < MAX_MOTORS; i++) escWriteUs(i, us);
+}
+
+/* 開機 ESC 行程校正: 先全油門, 再降到最低油門。
+ * 阻塞式, 僅可在 setup() 內、控制迴圈啟動前呼叫。
+ * 校正期間馬達會短暫收到全油門訊號, 務必拆槳或固定好機體。 */
+static inline void motorsEscCalibrate() {
+#if ESC_CAL_ENABLE
+  Serial.printf("[ESC] 行程校正: 輸出 %dus 維持 %dms (請拆槳)\n",
+                ESC_CAL_HIGH_US, ESC_CAL_TIME_MS);
+  escWriteAllUs(ESC_CAL_HIGH_US);
+  delay(ESC_CAL_TIME_MS);
+  escWriteAllUs(ESC_MIN);
+  Serial.printf("[ESC] 已降到 %dus, 等待 %dms 完成初始化\n",
+                ESC_MIN, ESC_CAL_LOW_MS);
+  delay(ESC_CAL_LOW_MS);
+#else
+  escWriteAllUs(ESC_MIN);
+#endif
+}
+
 static inline void motorsInit() {
   // ESP32Servo 預設使用所有可用的 LEDC 通道，需先配置足夠的定時器
   ESP32PWM::allocateTimer(0);

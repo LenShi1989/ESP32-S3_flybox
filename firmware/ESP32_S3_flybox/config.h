@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 #define FW_NAME    "ESP32-S3 Flybox"
-#define FW_VERSION "2.3.3"
+#define FW_VERSION "2.4.0"
 
 /* =============================================================
  * ESP32-S3 飛控板 (M5Stack AtomS3R-Ext) 設定
@@ -62,6 +62,23 @@
 #define ESC_MIN        1000
 #define ESC_MAX        2000
 #define ESC_PWM_HZ     50
+
+/* ---------- ESC 行程校正 (開機初始化) ----------
+ * 上電後先對所有馬達輸出 ESC_CAL_HIGH_US (2000us = 全油門) 維持
+ * ESC_CAL_TIME_MS, 再降到 ESC_MIN (1000us)。ESC 以此認定行程的
+ * 最高 / 最低點, 之後程式輸出的 1000~2000us 才會與實際油門一致;
+ * 若不做, 部分 ESC 會把油門中點或偏移後的範圍當成行程, 造成
+ * 低油門不轉、油門曲線前段無反應。
+ *
+ * !! 校正期間馬達會收到全油門訊號約 2 秒, 請務必拆槳或固定好機體 !!
+ * 不需要校正時把 ESC_CAL_ENABLE 設為 0, 開機直接輸出 ESC_MIN。
+ *
+ * ESC_CAL_LOW_MS: 降到最低油門後再等一段時間, 讓 ESC 完成初始化。
+ */
+#define ESC_CAL_ENABLE   1
+#define ESC_CAL_HIGH_US  2000
+#define ESC_CAL_TIME_MS  2000
+#define ESC_CAL_LOW_MS   300
 
 /* ---------- 各馬達最低啟動 PWM (us) ----------
  * 每顆 ESC 開始轉動的油門下限不同; 解鎖且油門高於 ESC_MIN 時,

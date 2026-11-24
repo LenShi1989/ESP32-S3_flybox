@@ -1,7 +1,7 @@
 /*
  * ESP32-S3 飛控板 (M5Stack AtomS3R-Ext) 韌體
  * ---------------------------------------------------------------
- * 版本 (Version): 2.3.3        (見 config.h 的 FW_VERSION)
+ * 版本 (Version): 2.4.0        (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    ESP32-S3 Flybox
  * ---------------------------------------------------------------
  * - Arduino IDE 1.8.19 / ESP32 core 2.x 或 3.x
@@ -17,6 +17,7 @@
  * - 機頭方向 = USB Type-C 接口方向
  * - 各馬達最低啟動 PWM 存於 NVS, 重開機仍保留
  * - 馬達輸出: ESP32Servo 庫 (50Hz, 1000-2000us)，簡化 PWM 控制
+ * - 開機 ESC 行程校正: 2000us 維持 2 秒後降回 1000us (務必拆槳)
  * - Web 介面 (SPIFFS + mDNS + AsyncWebServer):
  *     系統狀態、WiFi 掃描/連線/清除、OTA 更新 (firmware.bin/spiffs.bin)、
  *     使用者帳密/Token/無人機 ID 設定、WebSocket 雙向即時通訊
@@ -402,6 +403,8 @@ void setup() {
 
   motorMinLoad();
   motorsInit();
+  /* 開機 ESC 行程校正: 2000us 維持 2 秒 -> 1000us (見 config.h ESC_CAL_*) */
+  motorsEscCalibrate();
   motorsApplyCount(MOTOR_COUNT);
 
 #if USE_GPIO_STATUS_LED

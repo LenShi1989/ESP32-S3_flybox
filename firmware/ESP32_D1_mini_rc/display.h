@@ -67,6 +67,19 @@ static inline void oledHeader(const char* title, uint8_t page) {
   oled.drawFastHLine(0, 9, OLED_W, SSD1306_WHITE);
 }
 
+/* 開機畫面共用: 顯示 SoftAP 名稱與網址, 現場用手機連線時不必猜
+ * (SSID 固定 "Flybox-RC-" + MAC 後四碼, IP 固定 AP_IP_ADDR) */
+static inline void oledBootNetLines(int ySsid, int yIp) {
+  if (!gOledOk) return;
+  oled.setTextSize(1);
+  oled.setTextColor(SSD1306_WHITE);
+  oled.setCursor(0, ySsid);
+  oled.printf("AP %s", apSsid().c_str());   /* 17 字 = 102px */
+  oled.setCursor(0, yIp);
+  oled.print("IP ");
+  oled.print(WiFi.softAPIP().toString());
+}
+
 /* ---------- 開機: 選擇目標無人機 ID (SW1 按下確認) ---------- */
 static inline void oledBootFlyId(uint8_t id, int raw) {
   if (!gOledOk) return;
@@ -76,12 +89,11 @@ static inline void oledBootFlyId(uint8_t id, int raw) {
   oled.setCursor(0, 0);
   oled.printf("FlyID %3u", (unsigned)id);
   oled.setTextSize(1);
-  oled.setCursor(0, 24);
-  oled.print("Turn VRC1 to select");
-  oled.setCursor(0, 36);
-  oled.print("Press SW1 to confirm");
-  oled.setCursor(0, 48);
+  oled.setCursor(0, 20);
+  oled.print("Turn VRC1, SW1 = OK");
+  oled.setCursor(0, 30);
   oled.printf("VRC1 raw %4d", raw);
+  oledBootNetLines(40, 50);
   oled.display();
 }
 
@@ -110,12 +122,11 @@ static inline void oledBootSkip() {
   oled.clearDisplay();
   oled.setTextSize(1);
   oled.setTextColor(SSD1306_WHITE);
-  oled.setCursor(0, 0);  oled.print("SW2 = ON");
-  oled.setCursor(0, 10); oled.print("Skip boot flow");
-  oled.setCursor(0, 20); oled.print("Use saved ID / cal");
-  oled.setCursor(0, 34); oled.printf("FlyID   %3u", (unsigned)gSet.flyId);
-  oled.setCursor(0, 44); oled.printf("Cal     %s", gSet.calValid ? "OK" : "NOT CAL");
-  oled.setCursor(0, 54); oled.print("Starting...");
+  oled.setCursor(0, 0);  oled.print("SW2 = ON  Skip boot");
+  oled.setCursor(0, 10); oled.print("Use saved ID / cal");
+  oled.setCursor(0, 20); oled.printf("FlyID %3u  Cal %s", (unsigned)gSet.flyId,
+                                    gSet.calValid ? "OK" : "NO");
+  oledBootNetLines(30, 42);
   oled.display();
 }
 

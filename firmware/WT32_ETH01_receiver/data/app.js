@@ -446,6 +446,42 @@ async function loadFs() {
   });
 }
 
+/* ---------- 側欄: 外接感測器 (GPS x2 + 雷射測距) ---------- */
+function setVal(id, text, color) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = color || 'var(--fg)';
+}
+
+async function loadSensors() {
+  let s;
+  try { s = await api('/api/sensors'); } catch (e) { return; }
+  const list = s.gps || [];
+
+  /* 兩顆 GPS: 優先顯示已定位的那顆, 都沒有就顯示第一顆 */
+  let idx = list.findIndex(x => x.valid);
+  if (idx < 0) idx = 0;
+  const g = list[idx];
+
+  if (g && g.valid) {
+    setVal('sd-lat', Number(g.lat).toFixed(6));   /* 經緯度取到小數第 6 位 */
+    setVal('sd-lon', Number(g.lon).toFixed(6));
+    setVal('sd-gps', 'GPS' + (idx + 1) + ' 定位 · ' + g.sats + ' 星', 'var(--ok)');
+  } else {
+    setVal('sd-lat', '--', 'var(--muted)');
+    setVal('sd-lon', '--', 'var(--muted)');
+    const alive = list.filter(x => x.ok).length;
+    setVal('sd-gps', alive ? 'GPS 未定位' : 'GPS 無訊號', alive ? 'var(--warn)' : 'var(--muted)');
+  }
+
+  const lz = s.laser || {};
+  setVal('sd-agl', lz.ok ? Number(lz.m).toFixed(2) + ' m' : '--', lz.ok ? 'var(--fg)' : 'var(--muted)');
+  setVal('sd-alt', (g && g.valid) ? Number(g.alt).toFixed(1) + ' m' : '--',
+         (g && g.valid) ? 'var(--fg)' : 'var(--muted)');
+  setVal('sd-height', lz.ok ? '雷射正常' : '雷射無資料', lz.ok ? 'var(--ok)' : 'var(--muted)');
+}
+
 /* ---------- WebSocket ---------- */
 function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -720,9 +756,11 @@ function start() {
   $('app').classList.remove('hidden');
   loadStatus();
   loadFs();
+  loadSensors();
   connectWs();
   setInterval(loadStatus, 3000);
   setInterval(loadFs, 15000);
+  setInterval(loadSensors, 1000);
 }
 
 (async function init() {

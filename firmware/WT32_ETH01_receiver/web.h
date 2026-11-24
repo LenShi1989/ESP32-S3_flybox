@@ -11,6 +11,7 @@
 #include "config.h"
 #include "settings.h"
 #include "kkbox.h"
+#include "sensors.h"
 
 /* ================= 全域伺服器物件 ================= */
 static AsyncWebServer  server(WEB_PORT);
@@ -308,6 +309,12 @@ static void webSetup() {
   server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest* r) {
     requireAuth(r); if (r->getResponse()) return;
     sendJson(r, gLastTelemetry);
+  });
+
+  /* ---- 外接感測器 (GPS x2 + 雷射測距) ---- */
+  server.on("/api/sensors", HTTP_GET, [](AsyncWebServerRequest* r) {
+    requireAuth(r); if (r->getResponse()) return;
+    sendJson(r, sensorsJson());
   });
 
   /* ---- 本機無人機 ID ---- */

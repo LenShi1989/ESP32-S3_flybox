@@ -65,6 +65,7 @@ a{color:var(--accent);text-decoration:none}
 .sidebar{
   width:230px;flex:0 0 230px;background:var(--panel);border-right:1px solid var(--line);
   display:flex;flex-direction:column;gap:6px;padding:18px 0;z-index:2;
+  overflow-y:auto;   /* 加上感測器資訊卡後, 矮螢幕仍可捲動 */
 }
 body.nav-open .sidebar{display:none}   /* 電腦: 按漢堡收合側欄 */
 
@@ -89,6 +90,14 @@ nav .nav-group a{padding-left:26px}
 .theme-btn.active{background:var(--accent2);color:#fff}
 
 .ghost{margin:8px 14px;padding:9px;background:transparent;border:1px solid var(--line);color:var(--fg);border-radius:8px;cursor:pointer}
+
+/* ---------- 側欄: GPS / 地面高度即時資訊 ---------- */
+.side-info{display:flex;flex-direction:column;gap:8px;padding:10px 12px 2px;border-top:1px solid var(--line)}
+.side-card{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.side-title{font-size:11px;letter-spacing:.5px;color:var(--muted);margin-bottom:5px}
+.side-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:2px 0;font-size:11.5px}
+.side-row span{flex:0 0 auto;color:var(--muted)}
+.side-row b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
 .ghost:hover{border-color:var(--accent)}
 
 /* ---------- 頂列 + 漢堡 ---------- */

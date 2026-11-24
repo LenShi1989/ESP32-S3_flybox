@@ -38,6 +38,23 @@
       <a data-page="ota">OTA 更新</a>
       <a data-page="user">使用者設定</a>
     </nav>
+
+    <!-- 側欄: 外接感測器即時資訊 (GPS x2 + 雷射測距) -->
+    <div class="side-info">
+      <div class="side-card">
+        <div class="side-title">GPS 定位資訊</div>
+        <div class="side-row"><span>緯度</span><b id="sd-lat">--</b></div>
+        <div class="side-row"><span>經度</span><b id="sd-lon">--</b></div>
+        <div class="side-row"><span>狀態</span><b id="sd-gps">-</b></div>
+      </div>
+      <div class="side-card">
+        <div class="side-title">地面高度資訊</div>
+        <div class="side-row"><span>對地高度</span><b id="sd-agl">--</b></div>
+        <div class="side-row"><span>海拔高度</span><b id="sd-alt">--</b></div>
+        <div class="side-row"><span>狀態</span><b id="sd-height">-</b></div>
+      </div>
+    </div>
+
     <button id="logout" class="ghost">登出</button>
   </aside>
   <div class="backdrop" id="backdrop"></div>

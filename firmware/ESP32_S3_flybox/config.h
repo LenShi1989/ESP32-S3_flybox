@@ -99,6 +99,17 @@
 #define CTRL_MAX_DT    0.05f    /* 單次迴圈最大 dt, 避免排程延遲造成積分爆衝 */
 #define FAILSAFE_MS    2000     /* 超過此時間沒收到命令即自動上鎖 */
 
+/* ---------- 控制模式 (遙控器可切換) ----------
+ *   AUTO   : 自動控制 - PID + 卡爾曼濾波 + 自動配平 (預設)
+ *   MANUAL : 手動控制 - 不跑 PID, 搖桿量直接進混控, 無自動平衡
+ * 手動模式把 setpoint (deg/s) 乘以 MANUAL_MIX_SCALE 當成混控修正量,
+ * 並以 MANUAL_MIX_LIMIT 限幅, 避免單軸壓過油門造成 ESC 不對稱。
+ */
+#define CTRL_MODE_AUTO     1
+#define CTRL_MODE_MANUAL   0
+#define MANUAL_MIX_SCALE   2.0f
+#define MANUAL_MIX_LIMIT   400.0f
+
 /* ---------- IMU 校正與濾波 ---------- */
 #define GYRO_CAL_SAMPLES 400
 

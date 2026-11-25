@@ -168,6 +168,7 @@ function applyTelemetry(t) {
   }).join(' · ');
   $('joy-state').textContent = t.armed ? '已解鎖 (ARMED)' : '已連線 (待命)';
   if (t.hold !== undefined) setHold(!!t.hold);
+  if (t.mode !== undefined) setMode(t.mode);
   loadEsc();
 }
 
@@ -184,6 +185,26 @@ async function loadFs() {
   });
 }
 
+/* ---------- 控制模式 (手動 / 自動) ---------- */
+function setMode(mode) {
+  const auto = (+mode === 1);
+  const st = $('mode-state');
+  if (st) st.textContent = auto ? '自動控制' : '手動控制';
+  const row = $('t-mode');
+  if (row) {
+    row.textContent = auto ? '自動控制' : '手動控制';
+    row.style.color = auto ? 'var(--ok)' : 'var(--warn)';
+  }
+}
+$('btn-mode-auto').addEventListener('click', () => {
+  setMode(1);
+  sendOnce({ cmd: 'mode', mode: 'auto' });
+});
+$('btn-mode-manual').addEventListener('click', () => {
+  setMode(0);
+  sendOnce({ cmd: 'mode', mode: 'manual' });
+});
+
 /* ---------- WebSocket ---------- */
 function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -195,6 +216,7 @@ function connectWs() {
       const m = JSON.parse(ev.data);
       if (m.gyro) applyTelemetry(m);
       else if (m.mmin) { showMmin(m.mmin); if (m.ack) onAck(m.ack, 'ws'); }
+      else if (m.ack === 'mode') { setMode(m.mode === 'manual' ? 0 : 1); onAck(m.ack, 'ws'); }
       else if (m.ack) onAck(m.ack, 'ws');
       else if (m.err) {
         const st = $('imu-cal-state');

@@ -174,7 +174,34 @@ function applyTelemetry(t) {
     if (!motorsTouched) selectMcount(t.mcount);
   }
   $('f-hold').textContent = t.hold ? '開啟' : '關閉';
+  if (t.mode !== undefined) setMode(t.mode);
 }
+
+/* ---------- 控制模式 (手動 / 自動) ---------- */
+function setMode(mode) {
+  const auto = (+mode === 1);
+  const el = $('f-mode');
+  if (el) {
+    el.textContent = auto ? '自動控制' : '手動控制';
+    el.style.color = auto ? 'var(--ok)' : 'var(--warn)';
+  }
+  const st = $('mode-state');
+  if (st) st.textContent = '目前：' + (auto ? '自動控制' : '手動控制');
+}
+async function sendMode(mode) {
+  const st = $('mode-state');
+  if (st) st.textContent = '切換中…';
+  try {
+    await api('/api/command', {
+      method: 'POST',
+      body: { cmd: JSON.stringify({ cmd: 'mode', mode: mode ? 'auto' : 'manual' }) }
+    });
+  } catch (e) {
+    if (st) st.textContent = '切換失敗: ' + e.message;
+  }
+}
+$('btn-mode-auto').addEventListener('click', () => sendMode(1));
+$('btn-mode-manual').addEventListener('click', () => sendMode(0));
 
 /* ---------- 飛行狀態 (油門儀表盤 / 馬達圓餅圖) ---------- */
 const MOTOR_COLORS = ['#37c2ff', '#3ddc84', '#ffcc4d', '#ff5b5b',
@@ -191,24 +218,42 @@ function updateGauge(thr) {
   $('gauge-thr').textContent = v;
 }
 
-function updatePie(motors) {
-  const pie = $('motor-pie');
-  if (!pie || !motors || !motors.length) return;
-  let total = 0;
-  for (const m of motors) total += m;
-  if (!total) total = 1;
-  let acc = 0, stops = [], html = '';
-  for (let i = 0; i < motors.length; i++) {
+const MOTOR_PIE_COUNT = 8;
+
+function buildMotorPies() {
+  const box = $('motor-pies');
+  if (!box || box.childElementCount) return;
+  let html = '';
+  for (let i = 0; i < MOTOR_PIE_COUNT; i++) {
     const c = MOTOR_COLORS[i % MOTOR_COLORS.length];
-    const a = acc / total * 360, b = (acc + motors[i]) / total * 360;
-    stops.push(c + ' ' + a.toFixed(2) + 'deg ' + b.toFixed(2) + 'deg');
-    acc += motors[i];
-    html += '<li><span class="sw" style="background:' + c + '"></span>' +
-            (MOTOR_LABELS[i] || ('M' + (i + 1))) +
-            '<span class="mv">' + motors[i] + '</span></li>';
+    const label = MOTOR_LABELS[i] || ('M' + (i + 1));
+    html += '<div class="motor-pie-item" id="motor-item-' + (i + 1) + '">' +
+            '<div class="pie" id="motor-pie-' + (i + 1) + '">' +
+            '<div class="pie-hole"><b id="motor-val-' + (i + 1) + '">--</b></div></div>' +
+            '<div class="motor-pie-label"><span class="sw" style="background:' + c + '"></span>' +
+            label + '</div></div>';
   }
-  pie.style.background = 'conic-gradient(' + stops.join(',') + ')';
-  $('motor-legend').innerHTML = html;
+  box.innerHTML = html;
+}
+
+function updatePie(motors) {
+  buildMotorPies();
+  if (!motors || !motors.length) return;
+  for (let i = 0; i < MOTOR_PIE_COUNT; i++) {
+    const item = $('motor-item-' + (i + 1));
+    if (!item) continue;
+    const on = i < motors.length;
+    item.classList.toggle('hidden', !on);
+    if (!on) continue;
+    const v = Math.max(1000, Math.min(2000, Math.round(+motors[i] || 0)));
+    const frac = (v - 1000) / 1000;
+    const c = MOTOR_COLORS[i % MOTOR_COLORS.length];
+    const pie = $('motor-pie-' + (i + 1));
+    if (pie) pie.style.background =
+      'conic-gradient(' + c + ' ' + (frac * 360).toFixed(1) + 'deg, var(--panel2) 0deg)';
+    const val = $('motor-val-' + (i + 1));
+    if (val) val.textContent = v;
+  }
 }
 
 /* ---------- 三軸即時角度橫條圖 (Roll/Pitch ±90°, Yaw 0~360°) ---------- */
@@ -524,6 +569,7 @@ function connectWs() {
                    (m.roll === undefined ? '' : '（' + m.roll + ' / ' + m.pitch + '）'), 'var(--ok)');
         else if (m.sensor === 'level') calState('已清除 Roll / Pitch 歸零校正', 'var(--ok)');
       }
+      else if (m.ack === 'mode') setMode(m.mode === 'manual' ? 0 : 1);
       else if (m.err) calState('校正失敗：' + m.err, 'var(--err)');
     } catch (e) {
       serLog('rx', ev.data);

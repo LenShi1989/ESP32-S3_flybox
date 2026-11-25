@@ -56,6 +56,7 @@ long  throttleUs = ESC_MIN;
 bool  armed = false;
 bool  hold  = false;         /* 定高 (油門保持): 鎖定當前油門 */
 bool  pidBypass = false;     /* 馬達校正: 略過 PID, 馬達僅輸出固定油門 */
+uint8_t ctrlMode = CTRL_MODE_AUTO;  /* 0=手動 (無 PID 平衡), 1=自動 (PID+濾波) */
 
 uint16_t telIntervalMs = TEL_INTERVAL_MS;
 uint8_t  ledMode  = 2;       /* 0=off 1=on 2=blink */
@@ -146,7 +147,15 @@ static void controlStep(float dt) {
   gyroNow = imu.update();
 
   float rOut = 0.0f, pOut = 0.0f, yOut = 0.0f;
-  if (armed && !pidBypass) {
+  if (armed && !pidBypass && ctrlMode == CTRL_MODE_MANUAL) {
+    /* 手動控制: 不跑 PID / 卡爾曼, 搖桿量直接進混控 (無自動平衡) */
+    rOut = constrain(setRoll  * MANUAL_MIX_SCALE, -MANUAL_MIX_LIMIT, MANUAL_MIX_LIMIT);
+    pOut = constrain(setPitch * MANUAL_MIX_SCALE, -MANUAL_MIX_LIMIT, MANUAL_MIX_LIMIT);
+    yOut = constrain(setYaw   * MANUAL_MIX_SCALE, -MANUAL_MIX_LIMIT, MANUAL_MIX_LIMIT);
+    pidRoll.reset();
+    pidPitch.reset();
+    pidYaw.reset();
+  } else if (armed && !pidBypass) {
     /* 自動配平: 僅在 roll/pitch 搖桿置中時累積積分, 依陀螺殘餘轉速
      * 緩慢學習配平量; 搖桿離開中央即凍結 (保留配平值)。
      * yaw 積分維持常開。 */
@@ -197,7 +206,7 @@ static void sendTelemetry() {
   /* 單位: gyro=deg/s, att=deg (yaw 0~360), acc=mg, mag=0.1uT */
   char buf[384];
   int n = snprintf(buf, sizeof buf,
-    "{\"t\":%lu,\"armed\":%d,\"mcount\":%u,\"hold\":%d,\"magok\":%d,"
+    "{\"t\":%lu,\"armed\":%d,\"mcount\":%u,\"hold\":%d,\"magok\":%d,\"mode\":%d,"
     "\"gyro\":{\"roll\":%d,\"pitch\":%d,\"yaw\":%d},"
     "\"att\":{\"roll\":%d,\"pitch\":%d,\"yaw\":%d},"
     "\"acc\":{\"x\":%d,\"y\":%d,\"z\":%d},"
@@ -205,7 +214,7 @@ static void sendTelemetry() {
     "\"set\":{\"roll\":%d,\"pitch\":%d,\"yaw\":%d,\"thr\":%ld},"
     "\"motor\":[",
     (unsigned long)now, armed ? 1 : 0, (unsigned)motorCount, hold ? 1 : 0,
-    imu.magOk() ? 1 : 0,
+    imu.magOk() ? 1 : 0, (unsigned)ctrlMode,
     (int)lroundf(gyroNow.roll), (int)lroundf(gyroNow.pitch), (int)lroundf(gyroNow.yaw),
     (int)lroundf(att.roll), (int)lroundf(att.pitch), ((int)lroundf(att.yaw)) % 360,
     (int)lroundf(acc.x * 1000.0f), (int)lroundf(acc.y * 1000.0f), (int)lroundf(acc.z * 1000.0f),
@@ -296,6 +305,19 @@ static void handleCommand(char* s) {
       linkSendLine(b);
     }
 
+  } else if (!strcmp(cmd, "mode")) {
+    /* 控制模式: auto = PID + 卡爾曼 + 自動配平; manual = 無 PID 平衡 */
+    char mode[8] = "auto";
+    jStr(s, "mode", mode, sizeof mode);
+    ctrlMode = !strcmp(mode, "manual") ? CTRL_MODE_MANUAL : CTRL_MODE_AUTO;
+    pidRoll.reset();
+    pidPitch.reset();
+    pidYaw.reset();
+    char b[64];
+    snprintf(b, sizeof b, "{\"ack\":\"mode\",\"mode\":\"%s\"}",
+             ctrlMode == CTRL_MODE_MANUAL ? "manual" : "auto");
+    linkSendLine(b);
+
   } else if (!strcmp(cmd, "nopid")) {
     pidBypass = jInt(s, "on", 0) ? true : false;
     ackCmd("nopid");
@@ -359,10 +381,10 @@ static void handleCommand(char* s) {
     char b[288];
     int n = snprintf(b, sizeof b,
       "{\"ack\":\"status\",\"fw\":\"" FW_NAME "\",\"ver\":\"" FW_VERSION "\","
-      "\"armed\":%d,\"thr\":%ld,\"tel\":%u,\"mcount\":%u,\"hold\":%d,"
+      "\"armed\":%d,\"thr\":%ld,\"tel\":%u,\"mcount\":%u,\"hold\":%d,\"mode\":%d,"
       "\"magok\":%d,\"mmin\":[",
       armed ? 1 : 0, throttleUs, (unsigned)telIntervalMs,
-      (unsigned)motorCount, hold ? 1 : 0, imu.magOk() ? 1 : 0);
+      (unsigned)motorCount, hold ? 1 : 0, (unsigned)ctrlMode, imu.magOk() ? 1 : 0);
     for (uint8_t i = 0; i < MAX_MOTORS && n > 0 && n < (int)sizeof b; i++) {
       n += snprintf(b + n, sizeof b - n, i ? ",%u" : "%u", (unsigned)motorMin[i]);
     }

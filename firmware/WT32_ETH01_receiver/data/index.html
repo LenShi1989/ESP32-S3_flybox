@@ -234,8 +234,19 @@
           <tr><th>解鎖</th><td id="f-armed">-</td></tr>
           <tr><th>馬達數</th><td id="f-mcount">-</td></tr>
           <tr><th>定高 (油門保持)</th><td id="f-hold">-</td></tr>
+          <tr><th>控制模式</th><td id="f-mode">-</td></tr>
         </tbody>
       </table>
+
+      <h3>控制模式</h3>
+      <div class="card">
+        <div class="row card-actions">
+          <button type="button" id="btn-mode-auto" class="ghost">自動控制</button>
+          <button type="button" id="btn-mode-manual" class="ghost">手動控制</button>
+          <span class="muted small" id="mode-state">-</span>
+        </div>
+        <p class="muted small">自動控制：PID ＋ 卡爾曼濾波 ＋ 自動配平（Roll/Pitch 搖桿置中時學習配平量）。手動控制：不跑 PID 自動平衡，搖桿量直接進混控，需自行保持平衡。</p>
+      </div>
 
       <h3>油門 PWM</h3>
       <div class="card">
@@ -255,10 +266,8 @@
       <h3>馬達 PWM 轉速</h3>
       <p class="muted small">機頭朝上：左前 M1 CCW、右前 M2 CW、右後 M3 CCW、左後 M4 CW；X8 下槳依序為 M5–M8。</p>
       <div class="card">
-        <div class="pie-wrap">
-          <div id="motor-pie" class="pie"></div>
-          <ul id="motor-legend" class="motor-legend"></ul>
-        </div>
+        <div id="motor-pies" class="motor-pies"></div>
+        <p class="muted small">圓餅填色比例＝該顆馬達 PWM 介於 1000~2000µs 的位置，圓心顯示目前 µs。</p>
       </div>
 
       <h3>三軸即時角度 (deg)</h3>

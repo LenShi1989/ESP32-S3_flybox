@@ -139,9 +139,9 @@ static inline void oledPageFlight() {
   oled.print(gLinkUp ? "LINK" : "----");
 
   oledAt(1);
-  oled.printf("%-6s THR %4ld  %s",
-              gTelem.armed ? "ARMED" : "DISARM", gTelem.thr,
-              inputSourceCode(gCtrlActive));
+  oled.printf("%-6s %s THR %4ld",
+              gTelem.armed ? "ARMED" : "DISARM",
+              gTelem.mode ? "AUTO" : "MANL", gTelem.thr);
 
   oledAt(2);
   oled.printf("R %+3.0f  P %+3.0f  Y %+3.0f", gTelem.roll, gTelem.pitch, gTelem.yaw);

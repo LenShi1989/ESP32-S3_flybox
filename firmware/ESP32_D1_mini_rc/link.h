@@ -41,6 +41,7 @@ static void linkParse(const String& msg) {
   gTelem.yaw   = g["yaw"]   | 0.0f;
   gTelem.thr   = s["thr"]   | (long)1000;
   gTelem.armed = (doc["armed"] | 0) != 0;
+  gTelem.mode  = doc["mode"] | 1;
 
   JsonArray m = doc["motor"];
   int i = 0;

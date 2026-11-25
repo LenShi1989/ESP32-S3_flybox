@@ -98,6 +98,7 @@
           <tr><th>陀螺 Pitch</th><td id="t-gp">-</td></tr>
           <tr><th>陀螺 Yaw</th><td id="t-gy">-</td></tr>
           <tr><th>馬達</th><td id="t-motor">-</td></tr>
+          <tr><th>控制模式</th><td id="t-mode">-</td></tr>
         </tbody>
       </table>
       <p class="muted small">機頭朝上：左前 M1 CCW、右前 M2 CW、右後 M3 CCW、左後 M4 CW；X8 下槳依序為 M5–M8。</p>
@@ -230,6 +231,14 @@
     <section id="page-joy" class="page">
       <h2>模擬搖桿</h2>
       <p class="muted small">軟體搖桿命令會經 WiFi 送到接收機。若控制來源為「硬體搖桿」，本頁命令會被硬體搖桿覆蓋；可在「硬體遙控」頁切換來源。</p>
+      <div class="card">
+        <div class="row">
+          <span>控制模式：<b id="mode-state">-</b></span>
+          <button type="button" id="btn-mode-auto" class="ghost">自動控制</button>
+          <button type="button" id="btn-mode-manual" class="ghost">手動控制</button>
+        </div>
+        <p class="muted small">自動控制：PID ＋ 卡爾曼濾波 ＋ 自動配平（Roll/Pitch 置中時學習配平量）。手動控制：不跑 PID 自動平衡，搖桿量直接進混控，需自行保持平衡。</p>
+      </div>
       <div class="joy-wrap">
         <div class="pad-box">
           <div class="pad" id="pad">

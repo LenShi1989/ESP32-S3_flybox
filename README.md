@@ -237,8 +237,8 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
   若 `ok` 為 0 表示旋轉幅度不足，會保留舊校正值。
 - 遙測預設每 200ms 一筆（115200 下約 350 bytes/筆，仍有大量餘裕）。
 - 超過 `FAILSAFE_MS`（2000ms）沒收到任何命令會自動上鎖並送出 `failsafe`。
-- **翻機保護**：解鎖中 IMU 偵測到機體上下翻轉（加速度計 +Z 超過 `FLIP_ACC_UP_G`，
-  或重力傾角超過 `FLIP_ANGLE_DEG`，且持續 `FLIP_CONFIRM_MS`）時，
+- **翻機保護**：解鎖中 IMU 偵測到機體上下翻轉（加速度計 Z 軸低於 `-FLIP_ACC_UP_G`，
+  即平放 +1g、倒置 -1g；或重力傾角超過 `FLIP_ANGLE_DEG`，且持續 `FLIP_CONFIRM_MS`）時，
   立即上鎖、所有馬達降到 `ESC_MIN` 並送出 `{"evt":"flip"}`。
   翻正後不會自動解鎖，機體仍倒置時送 `arm` 會回 `{"err":"flip"}`。
 - 解鎖後 LED 快閃（綠），未解鎖慢閃（藍）；G39 外接狀態燈與板載 RGB 同步。

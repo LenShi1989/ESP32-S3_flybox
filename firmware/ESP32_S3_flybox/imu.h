@@ -87,11 +87,11 @@ public:
 #if FLIP_STOP_ENABLE
     const float n2 = _acc.x * _acc.x + _acc.y * _acc.y + _acc.z * _acc.z;
     if (n2 < 0.09f) return false;          /* 自由落體 / 無有效重力 */
-    float c = -_acc.z / sqrtf(n2);         /* 平放 = +1, 倒置 = -1 */
+    float c = _acc.z / sqrtf(n2);          /* 平放 = +1, 倒置 = -1 */
     if (c >  1.0f) c =  1.0f;
     if (c < -1.0f) c = -1.0f;
     const float tilt = acosf(c) * RAD_TO_DEG;
-    return (tilt > FLIP_ANGLE_DEG) || (_acc.z > FLIP_ACC_UP_G);
+    return (tilt > FLIP_ANGLE_DEG) || (_acc.z < -FLIP_ACC_UP_G);
 #else
     return false;
 #endif
@@ -437,8 +437,9 @@ private:
     _attOut.yaw   = _att.yaw;
   }
 
-  /* 翻機判定: 倒置以加速度計 +Z 判斷, 不受 Roll/Pitch 估算在倒飛時
-   * 失去方向性的影響; 另外以傾角超過門檻作為輔助條件。
+  /* 翻機判定: 倒置以加速度計 Z 軸判斷 (平放 +1g、倒置 -1g),
+   * 不受 Roll/Pitch 估算在倒飛時失去方向性的影響;
+   * 另外以傾角超過門檻作為輔助條件。
    * 條件需持續 FLIP_CONFIRM_MS 才成立, 避免瞬間負 G / 特技滾轉誤判。 */
   void updateFlip() {
 #if FLIP_STOP_ENABLE

@@ -105,15 +105,15 @@
  * 機體仍倒置時送 arm 會回 {"err":"flip"}。
  *
  * 判定條件 (任一成立且持續 FLIP_CONFIRM_MS):
- *   1. 加速度計 +Z (機體向下軸) > FLIP_ACC_UP_G:
- *      平放時 acc.z = -1g, 上下翻轉後變 +1g, 不受 Roll/Pitch 估算影響。
+ *   1. 加速度計 Z 軸 < -FLIP_ACC_UP_G:
+ *      平放時 acc.z = +1g, 上下翻轉後變 -1g, 不受 Roll/Pitch 估算影響。
  *   2. 以加速度計重力方向算出的傾角 > FLIP_ANGLE_DEG:
  *      0 度 = 平放, 180 度 = 完全倒置, 可涵蓋繞 roll / pitch 任一軸翻轉。
  * 確認時間可避免特技滾轉或瞬間負 G 造成誤判。
  * 設 FLIP_STOP_ENABLE 為 0 可停用此保護。
  */
 #define FLIP_STOP_ENABLE   1
-#define FLIP_ACC_UP_G      0.6f    /* 機體 +Z 加速度超過此值視為倒置 (g) */
+#define FLIP_ACC_UP_G      0.6f    /* Z 軸加速度低於 -此值視為倒置 (g) */
 #define FLIP_ANGLE_DEG     120.0f  /* 重力傾角超過此值視為翻機 (deg, 180=倒置) */
 #define FLIP_CONFIRM_MS    300     /* 條件需持續此時間才動作 (ms) */
 

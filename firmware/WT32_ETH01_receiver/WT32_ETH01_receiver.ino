@@ -1,5 +1,5 @@
 /*
- * WT32-ETH01 接收機 (Receiver) — KKBOX 飛控系統
+ * WT32-ETH01 接收機 (Receiver) — ESP32-S3 Flybox 飛控系統
  * ---------------------------------------------------------------
  * 版本 (Version): 2.4.0   (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    WT32-ETH01 Receiver
@@ -7,7 +7,7 @@
  * - 內建 LAN8720A RJ45 有線網路 + WiFi 無線網路 (可同時)
  * - 無藍牙: 遙控器一律經 WiFi WebSocket 連線 (2.1.0 移除藍牙功能)
  * - SPIFFS 網頁介面 (ESPAsyncWebServer) + WebSocket 即時雙向
- * - 與 KKBOX 飛控板以 Serial2 (GPIO5/GPIO17, 115200) 交換 JSON
+ * - 與 ESP32-S3 Flybox 飛控板以 Serial2 (GPIO5/GPIO17, 115200) 交換 JSON
  * - 外接感測器: GPS x2 (NMEA 0183) + 雷射測距 LRFX0M20KHS (sensors.h)
  * - 網頁: 系統狀態 / 網路設定 / 馬達模式 / 使用者設定 / OTA
  * - mDNS: http://flybox-receiver.local/ (區網內免記 IP)

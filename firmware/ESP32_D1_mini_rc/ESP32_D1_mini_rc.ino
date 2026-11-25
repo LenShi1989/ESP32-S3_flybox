@@ -1,5 +1,5 @@
 /*
- * ESP32 D1 mini 遙控器 (RC) — KKBOX 飛控系統
+ * ESP32 D1 mini 遙控器 (RC) — ESP32-S3 Flybox 飛控系統
  * ---------------------------------------------------------------
  * 版本 (Version): 2.4.0   (見 config.h 的 FW_VERSION)
  * 名稱 (Name):    ESP32 D1 mini RC

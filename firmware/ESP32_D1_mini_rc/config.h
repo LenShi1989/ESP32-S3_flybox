@@ -111,7 +111,7 @@
  * 避免把雜訊放大成大幅度的命令。 */
 #define AUTO_SPAN_MIN  200
 
-/* KKBOX motor[] 順序固定為 M1..M8：M1=FL(CCW), M2=FR(CW),
+/* ESP32-S3 Flybox motor[] 順序固定為 M1..M8：M1=FL(CCW), M2=FR(CW),
  * M3=RR(CCW), M4=RL(CW); M5..M8 為各位置 X8 下槳。 */
 
 #endif

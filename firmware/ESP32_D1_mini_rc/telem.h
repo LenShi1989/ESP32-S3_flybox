@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-/* 由接收機收到的遙測 (解析自 KKBOX JSON) */
+/* 由接收機收到的遙測 (解析自 ESP32-S3 Flybox JSON) */
 struct Telem {
   bool     valid;
   bool     armed;

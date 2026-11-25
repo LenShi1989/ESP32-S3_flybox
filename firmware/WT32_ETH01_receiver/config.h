@@ -8,7 +8,7 @@
  * 名稱 (Name):    WT32-ETH01 Receiver
  * -------------------------------------------------------------
  * 功能:
- *   - 透過 Serial2 (GPIO5=RX, GPIO17=TX) 與 KKBOX 飛控板以 JSON 通訊
+ *   - 透過 Serial2 (GPIO5=RX, GPIO17=TX) 與 ESP32-S3 Flybox 飛控板以 JSON 通訊
  *   - 內建 LAN8720A RJ45 有線網路 + WiFi 無線網路 (可同時)
  *   - SPIFFS 網頁介面 (ESPAsyncWebServer) + WebSocket 即時雙向
  *   - WiFi / RJ45 / 馬達模式 / 使用者 / OTA 設定 (PID 設定在遙控器)
@@ -22,11 +22,11 @@
 #define FW_NAME    "WT32-ETH01 Receiver"
 #define FW_VERSION "2.4.0"
 
-/* ---------- 與 KKBOX 飛控板的 UART ---------- */
+/* ---------- 與 ESP32-S3 Flybox 飛控板的 UART ---------- */
 #define KK_RX_PIN   5
 #define KK_TX_PIN   17
 /* 115200: 與 ESP32-S3 飛控板 (硬體 UART1) 一致, 可容納含姿態/地磁的遙測。
- * 若仍需連接舊 KKBOX 飛控板 (8MHz SoftwareSerial, 上限 9600), 請改回 9600
+ * 若仍需連接舊 ESP32-S3 Flybox 飛控板 (8MHz SoftwareSerial, 上限 9600), 請改回 9600
  * 並同步調整飛控 config.h 的 RS232_BAUD 與遙測間隔。 */
 #define KK_BAUD     115200
 
@@ -82,7 +82,7 @@
 #define DEF_USER  "admin"
 #define DEF_PASS  "admin"
 
-/* KKBOX motor[] 順序固定為 M1..M8：M1=FL(CCW), M2=FR(CW),
+/* ESP32-S3 Flybox motor[] 順序固定為 M1..M8：M1=FL(CCW), M2=FR(CW),
  * M3=RR(CCW), M4=RL(CW); M5..M8 為各位置 X8 下槳。 */
 
 #endif

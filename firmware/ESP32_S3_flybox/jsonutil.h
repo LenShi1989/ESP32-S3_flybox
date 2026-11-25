@@ -18,7 +18,9 @@ static inline const char* jFind(const char* json, const char* key) {
     if (*k || *q != '"') continue;      /* 只比對到一半或不是結束引號 */
     q++;
     while (*q == ' ' || *q == '\t') q++;
-    if (*q != ':') return 0;
+    /* 引號內文字剛好等於 key (例如 {"cmd":"mode","mode":"manual"} 的
+     * cmd 值) 時不是真的 key, 必須繼續往下找，否則同名命令解析失敗。 */
+    if (*q != ':') continue;
     q++;
     while (*q == ' ' || *q == '\t') q++;
     return q;

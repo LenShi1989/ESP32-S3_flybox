@@ -146,6 +146,15 @@ static void updateLed() {
 static void controlStep(float dt) {
   gyroNow = imu.update();
 
+  /* 翻機保護: IMU 偵測到機體上下翻轉, 立即上鎖並停止所有馬達。
+   * 翻正後不會自動解鎖, 必須重新送 arm。 */
+  if (armed && imu.flipped()) {
+    armed = false;
+    hold  = false;
+    setRoll = setPitch = setYaw = 0.0f;
+    linkSendLine("{\"evt\":\"flip\"}");
+  }
+
   float rOut = 0.0f, pOut = 0.0f, yOut = 0.0f;
   if (armed && !pidBypass && ctrlMode == CTRL_MODE_MANUAL) {
     /* 手動控制: 不跑 PID / 卡爾曼, 搖桿量直接進混控 (無自動平衡) */
@@ -204,9 +213,10 @@ static void sendTelemetry() {
   const Axis3&    mag = imu.mag();
 
   /* 單位: gyro=deg/s, att=deg (yaw 0~360), acc=mg, mag=0.1uT */
-  char buf[384];
+  char buf[448];
   int n = snprintf(buf, sizeof buf,
     "{\"t\":%lu,\"armed\":%d,\"mcount\":%u,\"hold\":%d,\"magok\":%d,\"mode\":%d,"
+    "\"flip\":%d,"
     "\"gyro\":{\"roll\":%d,\"pitch\":%d,\"yaw\":%d},"
     "\"att\":{\"roll\":%d,\"pitch\":%d,\"yaw\":%d},"
     "\"acc\":{\"x\":%d,\"y\":%d,\"z\":%d},"
@@ -214,7 +224,7 @@ static void sendTelemetry() {
     "\"set\":{\"roll\":%d,\"pitch\":%d,\"yaw\":%d,\"thr\":%ld},"
     "\"motor\":[",
     (unsigned long)now, armed ? 1 : 0, (unsigned)motorCount, hold ? 1 : 0,
-    imu.magOk() ? 1 : 0, (unsigned)ctrlMode,
+    imu.magOk() ? 1 : 0, (unsigned)ctrlMode, imu.flipped() ? 1 : 0,
     (int)lroundf(gyroNow.roll), (int)lroundf(gyroNow.pitch), (int)lroundf(gyroNow.yaw),
     (int)lroundf(att.roll), (int)lroundf(att.pitch), ((int)lroundf(att.yaw)) % 360,
     (int)lroundf(acc.x * 1000.0f), (int)lroundf(acc.y * 1000.0f), (int)lroundf(acc.z * 1000.0f),
@@ -259,6 +269,7 @@ static void handleCommand(char* s) {
 
   } else if (!strcmp(cmd, "arm")) {
     if (!imu.ok()) { linkSendLine("{\"err\":\"imu\"}"); return; }
+    if (imu.upsideDown()) { linkSendLine("{\"err\":\"flip\"}"); return; }
     throttleUs = ESC_MIN;
     hold = false;
     armed = true;
@@ -382,9 +393,10 @@ static void handleCommand(char* s) {
     int n = snprintf(b, sizeof b,
       "{\"ack\":\"status\",\"fw\":\"" FW_NAME "\",\"ver\":\"" FW_VERSION "\","
       "\"armed\":%d,\"thr\":%ld,\"tel\":%u,\"mcount\":%u,\"hold\":%d,\"mode\":%d,"
-      "\"magok\":%d,\"mmin\":[",
+      "\"magok\":%d,\"flip\":%d,\"mmin\":[",
       armed ? 1 : 0, throttleUs, (unsigned)telIntervalMs,
-      (unsigned)motorCount, hold ? 1 : 0, (unsigned)ctrlMode, imu.magOk() ? 1 : 0);
+      (unsigned)motorCount, hold ? 1 : 0, (unsigned)ctrlMode,
+      imu.magOk() ? 1 : 0, imu.flipped() ? 1 : 0);
     for (uint8_t i = 0; i < MAX_MOTORS && n > 0 && n < (int)sizeof b; i++) {
       n += snprintf(b + n, sizeof b - n, i ? ",%u" : "%u", (unsigned)motorMin[i]);
     }

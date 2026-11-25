@@ -214,8 +214,9 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 {"ack":"arm"}
 {"evt":"ready","fw":"ESP32-S3 Flybox","ver":"2.4.0"}
 {"evt":"failsafe"}
+{"evt":"flip"}
 {"err":"bad cmd"}
-{"t":12345,"armed":1,"mcount":4,"hold":0,"magok":1,
+{"t":12345,"armed":1,"mcount":4,"hold":0,"magok":1,"flip":0,
  "gyro":{"roll":0,"pitch":0,"yaw":0},
  "att":{"roll":0,"pitch":0,"yaw":90},
  "acc":{"x":0,"y":0,"z":-1000},
@@ -224,7 +225,8 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 ```
 
 - 遙測欄位：`gyro` 為 deg/s；`att` 為度 (yaw 0~360)；`acc` 為 mg；`mag` 為 0.1µT；
-  `magok` 表示 BMM150 是否有效；`mode` 為 0=手動控制 / 1=自動控制。
+  `magok` 表示 BMM150 是否有效；`flip` 表示 IMU 是否偵測到上下翻轉；
+  `mode` 為 0=手動控制 / 1=自動控制。
 - 每次開機都會自動執行 BMI270 校正（陀螺零點 + 以開機時的姿態作為 Roll/Pitch 零點），
   因此常溫靜置開機後 `att.roll` / `att.pitch` 即為 0；開機時機體必須靜止放平。
 - BMI270 校正（`sensor:"bmi270"`）會量陀螺零點並以當前姿態作為 Roll/Pitch 零點，
@@ -235,6 +237,10 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
   若 `ok` 為 0 表示旋轉幅度不足，會保留舊校正值。
 - 遙測預設每 200ms 一筆（115200 下約 350 bytes/筆，仍有大量餘裕）。
 - 超過 `FAILSAFE_MS`（2000ms）沒收到任何命令會自動上鎖並送出 `failsafe`。
+- **翻機保護**：解鎖中 IMU 偵測到機體上下翻轉（加速度計 +Z 超過 `FLIP_ACC_UP_G`，
+  或重力傾角超過 `FLIP_ANGLE_DEG`，且持續 `FLIP_CONFIRM_MS`）時，
+  立即上鎖、所有馬達降到 `ESC_MIN` 並送出 `{"evt":"flip"}`。
+  翻正後不會自動解鎖，機體仍倒置時送 `arm` 會回 `{"err":"flip"}`。
 - 解鎖後 LED 快閃（綠），未解鎖慢閃（藍）；G39 外接狀態燈與板載 RGB 同步。
 
 ---
@@ -485,6 +491,8 @@ X8 同軸：M5=FL、M6=FR、M7=RR、M8=RL，同臂下槳轉向與上槳相反。
 - 飛控開機即做 ESC 行程校正：所有馬達輸出 2000us 兩秒後降到 1000us
   （`ESC_CAL_ENABLE` / `ESC_CAL_TIME_MS`），這段期間馬達會全油門，務必先拆槳。
 - `arm` 後油門即時生效，請先把機體固定好。
+- 翻機保護只能降低翻覆後馬達持續轉動的風險，無法避免翻機；起飛前仍請確認
+  IMU 方向與遙測的 `flip` 狀態正常。
 - 由遙控器觸發的 ESC 行程校正（`nopid`）期間不套用最低啟動 PWM，可回到 1000us；
   與開機自動校正（`ESC_CAL_*`）是兩回事。
 

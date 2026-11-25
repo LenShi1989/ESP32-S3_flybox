@@ -49,7 +49,8 @@ class Imu {
 public:
   Imu() : _ok(false), _magOk(false), _attInit(false), _levelValid(false), _lastUs(0),
           _magCalActive(false), _magCalDone(false), _magCalValid(false),
-          _magCalStartMs(0), _magCalMs(0), _magCalSamples(0) {
+          _magCalStartMs(0), _magCalMs(0), _magCalSamples(0),
+          _flipSinceMs(0), _flipped(false) {
     _o[0] = _o[1] = _o[2] = 0.0f;
     _f[0] = _f[1] = _f[2] = 0.0f;
     _rate = { 0.0f, 0.0f, 0.0f };
@@ -75,6 +76,26 @@ public:
   }
   bool ok() const    { return _ok; }
   bool magOk() const { return _magOk; }
+
+  /* IMU 判定機體上下翻轉 (需持續 FLIP_CONFIRM_MS) */
+  bool flipped() const { return _flipped; }
+
+  /* 目前這一刻是否倒置 (未經確認時間), 供解鎖前檢查。
+   * 以加速度計重力方向計算傾角: 0 度 = 平放, 180 度 = 完全倒置,
+   * 不受 Roll/Pitch 估算在倒飛時失去方向性 (pitch 被限在 ±90) 影響。 */
+  bool upsideDown() const {
+#if FLIP_STOP_ENABLE
+    const float n2 = _acc.x * _acc.x + _acc.y * _acc.y + _acc.z * _acc.z;
+    if (n2 < 0.09f) return false;          /* 自由落體 / 無有效重力 */
+    float c = -_acc.z / sqrtf(n2);         /* 平放 = +1, 倒置 = -1 */
+    if (c >  1.0f) c =  1.0f;
+    if (c < -1.0f) c = -1.0f;
+    const float tilt = acosf(c) * RAD_TO_DEG;
+    return (tilt > FLIP_ANGLE_DEG) || (_acc.z > FLIP_ACC_UP_G);
+#else
+    return false;
+#endif
+  }
 
   bool magCalActive() const { return _magCalActive; }
   bool magCalValid()  const { return _magCalValid; }
@@ -152,6 +173,8 @@ public:
 #endif
     _attInit = false;
     _lastUs  = 0;
+    _flipSinceMs = 0;
+    _flipped = false;
   }
 
   /* 以目前姿態作為 Roll / Pitch 零點 (機體必須靜止放平), 並存入 NVS。
@@ -404,6 +427,7 @@ private:
     }
 
     applyLevelOffset();
+    updateFlip();
   }
 
   /* 把 Roll / Pitch 歸零校正量套用到輸出姿態 (不影響內部積分狀態) */
@@ -411,6 +435,22 @@ private:
     _attOut.roll  = wrap180(_att.roll  - _attOff[0]);
     _attOut.pitch = wrap180(_att.pitch - _attOff[1]);
     _attOut.yaw   = _att.yaw;
+  }
+
+  /* 翻機判定: 倒置以加速度計 +Z 判斷, 不受 Roll/Pitch 估算在倒飛時
+   * 失去方向性的影響; 另外以傾角超過門檻作為輔助條件。
+   * 條件需持續 FLIP_CONFIRM_MS 才成立, 避免瞬間負 G / 特技滾轉誤判。 */
+  void updateFlip() {
+#if FLIP_STOP_ENABLE
+    if (!upsideDown()) {
+      _flipSinceMs = 0;
+      _flipped = false;
+      return;
+    }
+    const uint32_t now = millis();
+    if (_flipSinceMs == 0) _flipSinceMs = now;
+    if (now - _flipSinceMs >= FLIP_CONFIRM_MS) _flipped = true;
+#endif
   }
 
   bool  _ok;
@@ -439,6 +479,10 @@ private:
   float    _magScale[3];
   float    _magMin[3];
   float    _magMax[3];
+
+  /* 翻機偵測 */
+  uint32_t _flipSinceMs;
+  bool     _flipped;
 #if GYRO_KALMAN_ENABLE
   Kalman1D _kR, _kP, _kY;
 #endif

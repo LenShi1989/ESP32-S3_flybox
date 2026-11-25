@@ -230,6 +230,10 @@ function connectWs() {
                                     : 'BMM150 校正失敗：旋轉幅度不足，請重試';
         toast(ok ? '✓ BMM150 校正完成' : '✗ BMM150 校正失敗', ok ? 'ok' : 'err');
       }
+      else if (m.evt === 'flip') {
+        armedNow = false;
+        toast('⚠ IMU 偵測翻機，馬達已停止 (請重新解鎖)', 'err');
+      }
       else if (m.evt === 'failsafe') onLinkErr('飛控 failsafe 已自動上鎖');
     } catch (e) {}
   };
